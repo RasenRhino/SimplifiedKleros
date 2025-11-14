@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "./TestToken.sol";
-import "./SimpleKleros.sol";
+import "../src/TestToken.sol";
+import "../src/SimpleKleros.sol";
 
 contract SimpleKlerosTest is Test {
     TestToken token;
@@ -25,10 +25,10 @@ contract SimpleKlerosTest is Test {
         // Deploy SimpleKleros
         kleros = new SimpleKleros(
             IERC20(address(token)),
-            100 ether,  // minStake
-            3,          // jurorsPerDispute
-            1 hours,    // commitDuration
-            1 hours     // revealDuration
+            100 ether, // minStake
+            3, // jurorsPerDispute
+            1 hours, // commitDuration
+            1 hours // revealDuration
         );
 
         // Jurors stake
@@ -100,12 +100,7 @@ contract SimpleKlerosTest is Test {
         vm.warp(block.timestamp + 2 hours);
         kleros.finalize(id);
 
-        (
-            SimpleKleros.Phase phase,
-            SimpleKleros.Ruling ruling,
-            uint256 v1,
-            uint256 v2
-        ) = kleros.getDisputeSummary(id);
+        (SimpleKleros.Phase phase, SimpleKleros.Ruling ruling, uint256 v1, uint256 v2) = kleros.getDisputeSummary(id);
 
         assertEq(uint256(phase), uint256(SimpleKleros.Phase.Resolved), "wrong phase");
         assertEq(uint256(ruling), uint256(SimpleKleros.Ruling.Option1), "wrong ruling");
