@@ -26,10 +26,10 @@ contract SimpleKlerosPhase1 {
     }
 
     struct Vote {
-        bytes32 commit;      // keccak256(abi.encodePacked(vote, salt))
-        uint8 revealedVote;  // 1 or 2
+        bytes32 commit; // keccak256(abi.encodePacked(vote, salt))
+        uint8 revealedVote; // 1 or 2
         bool revealed;
-        uint256 weight;      // token balance at time of reveal
+        uint256 weight; // token balance at time of reveal
     }
 
     struct Dispute {
@@ -49,7 +49,7 @@ contract SimpleKlerosPhase1 {
     // --- Storage ---
 
     IERC20 public immutable token;
-    uint256 public immutable minBalance;      // minimum token balance to be a juror
+    uint256 public immutable minBalance; // minimum token balance to be a juror
     uint256 public immutable jurorsPerDispute;
     uint256 public immutable commitDuration;
     uint256 public immutable revealDuration;
@@ -91,12 +91,12 @@ contract SimpleKlerosPhase1 {
     function registerAsJuror() external {
         uint256 balance = token.balanceOf(msg.sender);
         require(balance >= minBalance, "insufficient balance");
-        
+
         // Check if already registered
         for (uint256 i = 0; i < eligibleJurors.length; i++) {
             require(eligibleJurors[i] != msg.sender, "already registered");
         }
-        
+
         eligibleJurors.push(msg.sender);
         emit JurorRegistered(msg.sender, balance);
     }
@@ -129,11 +129,7 @@ contract SimpleKlerosPhase1 {
         // Keep picking until we have jurorsPerDispute unique jurors
         while (d.jurors.length < jurorsPerDispute) {
             uint256 i = d.jurors.length;
-            uint256 rand = uint256(
-                keccak256(
-                    abi.encodePacked(blockhash(block.number - 1), id, i, nonce)
-                )
-            );
+            uint256 rand = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), id, i, nonce)));
             address juror = eligibleJurors[rand % eligibleJurors.length];
 
             // Verify juror still has sufficient balance
@@ -155,10 +151,7 @@ contract SimpleKlerosPhase1 {
     /// @notice Juror commits a vote as hash(vote, salt)
     function commitVote(uint256 id, bytes32 commitHash) external {
         Dispute storage d = disputes[id];
-        require(
-            d.phase == Phase.JurorsSelected || d.phase == Phase.Commit,
-            "wrong phase"
-        );
+        require(d.phase == Phase.JurorsSelected || d.phase == Phase.Commit, "wrong phase");
         require(block.timestamp <= d.commitDeadline, "commit over");
         require(_isJuror(id, msg.sender), "not a juror");
 
@@ -178,10 +171,7 @@ contract SimpleKlerosPhase1 {
         require(vote == 1 || vote == 2, "invalid vote");
 
         Dispute storage d = disputes[id];
-        require(
-            d.phase == Phase.Commit || d.phase == Phase.Reveal,
-            "wrong phase"
-        );
+        require(d.phase == Phase.Commit || d.phase == Phase.Reveal, "wrong phase");
         require(block.timestamp > d.commitDeadline, "commit not finished");
         require(block.timestamp <= d.revealDeadline, "reveal over");
         require(_isJuror(id, msg.sender), "not a juror");
@@ -240,22 +230,13 @@ contract SimpleKlerosPhase1 {
     function getDisputeSummary(uint256 id)
         external
         view
-        returns (
-            Phase phase,
-            Ruling ruling,
-            uint256 weightedVotes1,
-            uint256 weightedVotes2
-        )
+        returns (Phase phase, Ruling ruling, uint256 weightedVotes1, uint256 weightedVotes2)
     {
         Dispute storage d = disputes[id];
         return (d.phase, d.ruling, d.weightedVotesOption1, d.weightedVotesOption2);
     }
 
-    function getJurorVote(uint256 id, address juror)
-        external
-        view
-        returns (bool revealed, uint8 vote, uint256 weight)
-    {
+    function getJurorVote(uint256 id, address juror) external view returns (bool revealed, uint8 vote, uint256 weight) {
         Vote storage v = disputes[id].votes[juror];
         return (v.revealed, v.revealedVote, v.weight);
     }

@@ -32,8 +32,8 @@ contract SimpleKleros {
     }
 
     struct Vote {
-        bytes32 commit;      // keccak256(abi.encodePacked(vote, salt))
-        uint8 revealedVote;  // 1 or 2
+        bytes32 commit; // keccak256(abi.encodePacked(vote, salt))
+        uint8 revealedVote; // 1 or 2
         bool revealed;
     }
 
@@ -151,11 +151,7 @@ contract SimpleKleros {
         // keep picking until we have jurorsPerDispute unique jurors
         while (d.jurors.length < jurorsPerDispute) {
             uint256 i = d.jurors.length;
-            uint256 rand = uint256(
-                keccak256(
-                    abi.encodePacked(blockhash(block.number - 1), id, i, nonce)
-                )
-            );
+            uint256 rand = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), id, i, nonce)));
             address juror = jurorList[rand % jurorList.length];
 
             if (!_isJuror(id, juror)) {
@@ -178,10 +174,7 @@ contract SimpleKleros {
     /// @notice Juror commits a vote as a hash(vote, salt)
     function commitVote(uint256 id, bytes32 commitHash) external {
         Dispute storage d = disputes[id];
-        require(
-            d.phase == Phase.JurorsDrawn || d.phase == Phase.Commit,
-            "wrong phase"
-        );
+        require(d.phase == Phase.JurorsDrawn || d.phase == Phase.Commit, "wrong phase");
         require(block.timestamp <= d.commitDeadline, "commit over");
         require(_isJuror(id, msg.sender), "not a juror");
 
@@ -200,10 +193,7 @@ contract SimpleKleros {
         require(vote == 1 || vote == 2, "invalid vote");
 
         Dispute storage d = disputes[id];
-        require(
-            d.phase == Phase.Commit || d.phase == Phase.Reveal,
-            "wrong phase"
-        );
+        require(d.phase == Phase.Commit || d.phase == Phase.Reveal, "wrong phase");
         require(block.timestamp > d.commitDeadline, "commit not finished");
         require(block.timestamp <= d.revealDeadline, "reveal over");
         require(_isJuror(id, msg.sender), "not a juror");

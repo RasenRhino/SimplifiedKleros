@@ -18,17 +18,17 @@ contract SimpleKlerosPhase1Test is Test {
         token = new TestToken(1_000_000 ether);
 
         // Fund jurors with DIFFERENT balances to test weighted voting
-        token.transfer(juror1, 500 ether);  // juror1 has 500 tokens (50% weight)
-        token.transfer(juror2, 300 ether);  // juror2 has 300 tokens (30% weight)
-        token.transfer(juror3, 200 ether);  // juror3 has 200 tokens (20% weight)
+        token.transfer(juror1, 500 ether); // juror1 has 500 tokens (50% weight)
+        token.transfer(juror2, 300 ether); // juror2 has 300 tokens (30% weight)
+        token.transfer(juror3, 200 ether); // juror3 has 200 tokens (20% weight)
 
         // Deploy SimpleKlerosPhase1
         kleros = new SimpleKlerosPhase1(
             IERC20(address(token)),
-            100 ether,  // minBalance
-            3,          // jurorsPerDispute
-            1 hours,    // commitDuration
-            1 hours     // revealDuration
+            100 ether, // minBalance
+            3, // jurorsPerDispute
+            1 hours, // commitDuration
+            1 hours // revealDuration
         );
 
         // Jurors register (NO staking in Phase 1, just registration)
@@ -57,9 +57,9 @@ contract SimpleKlerosPhase1Test is Test {
         bytes32 salt2 = keccak256("salt2");
 
         // Find which juror is which based on balance
-        address bigJuror;    // 500 tokens
-        address medJuror;    // 300 tokens
-        address smallJuror;  // 200 tokens
+        address bigJuror; // 500 tokens
+        address medJuror; // 300 tokens
+        address smallJuror; // 200 tokens
 
         for (uint256 i = 0; i < 3; i++) {
             uint256 bal = token.balanceOf(jurors[i]);
@@ -195,7 +195,7 @@ contract SimpleKlerosPhase1Test is Test {
 
         vm.startPrank(jurors[0]);
         kleros.commitVote(id, commit);
-        
+
         vm.expectRevert("already committed");
         kleros.commitVote(id, commit);
         vm.stopPrank();
@@ -228,7 +228,7 @@ contract SimpleKlerosPhase1Test is Test {
         address[] memory jurors = kleros.getJurors(id);
 
         bytes32 salt = keccak256("secret");
-        
+
         // Juror commits
         vm.prank(jurors[0]);
         kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
