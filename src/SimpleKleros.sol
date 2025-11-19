@@ -19,7 +19,6 @@ contract SimpleKleros {
         Reveal,
         Resolved
     }
-
     enum Ruling {
         Undecided,
         Option1,
@@ -40,7 +39,7 @@ contract SimpleKleros {
     struct Dispute {
         uint256 id;
         address creator;
-        string metaEvidence; // e.g. IPFS hash or description
+        string metaEvidence; // e.g. IPFS hash or description 
         Phase phase;
         address[] jurors;
         uint256 commitDeadline;
