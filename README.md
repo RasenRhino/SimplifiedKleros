@@ -44,3 +44,63 @@ Ran 6 tests for test/SimpleKlerosPhase3Test.t.sol:SimpleKlerosPhase3Test
 [PASS] testPhase3TieNoRedistribution() (gas: 609922)
 Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 1.32ms
 ```
+### All the tests for Phase3
+
+| Test | What it checks |
+|------|----------------|
+| `testPhase3MajorityWinsAndGetsReward` | Minority loses stake, majority gains it proportionally |
+| `testPhase3TieNoRedistribution` | 500 vs 500 weighted vote → no one gets slashed |
+| `testPhase3NonRevealerLosesEverything` | Juror who commits but doesn't reveal loses entire stake |
+| `testPhase3ProportionalRewardDistribution` | Rewards match stake ratio (5:3 stake → 5:3 reward) |
+| `testPhase3AllLoseIfAllMinority` | Verifies 500 vs 500 is correctly detected as tie |
+| `testPhase3CanUnstakeAfterWinning` | Winner can withdraw rewards as real tokens |
+
+## Security & Access Control
+
+| Test | What it checks |
+|------|----------------|
+| `testCannotCommitTwice` | Same juror can't submit two commits |
+| `testNonJurorCannotCommit` | Random address blocked from voting |
+| `testNonJurorCannotReveal` | Random address blocked from reveal phase |
+| `testCannotRevealWithWrongSalt` | Wrong salt → reveal rejected |
+| `testCannotRevealWithWrongVote` | Can't lie about what you committed |
+| `testCannotRevealTwice` | No double reveals |
+| `testCannotRevealInvalidVoteValue` | Vote must be 1 or 2, not 0 or 3 |
+
+## Phase Timing Enforcement
+
+| Test | What it checks |
+|------|----------------|
+| `testCannotRevealBeforeCommitDeadline` | Must wait for commit phase to end |
+| `testCannotCommitAfterDeadline` | Late commits rejected |
+| `testCannotRevealAfterDeadline` | Late reveals rejected |
+| `testCannotFinalizeBeforeRevealDeadline` | Can't end dispute early |
+| `testCannotDrawJurorsTwice` | Jurors drawn only once per dispute |
+
+## Staking Mechanics
+
+| Test | What it checks |
+|------|----------------|
+| `testCannotUnstakeWhileLocked` | Can't withdraw while in active dispute |
+| `testCannotStakeBelowMinimum` | Must stake ≥ 100 tokens |
+| `testCannotStakeZero` | Zero stake rejected |
+| `testCannotUnstakeMoreThanStaked` | Can't withdraw more than you have |
+
+## Edge Cases
+
+| Test | What it checks |
+|------|----------------|
+| `testUnanimousVote` | All vote same → no losers, stakes unchanged |
+| `testSingleRevealerTakesAll` | One revealer wins all 1000 tokens |
+| `testNoOneReveals` | Zero reveals → Undecided ruling |
+| `testOption2Wins` | Option2 can win (not just Option1) |
+| `testCannotCreateDisputeWithoutEnoughJurors` | Need enough stakers before creating disputes |
+| `testJurorListGrows` | New stakers added to juror pool |
+| `testVoteWeightSnapshot` | Weight captured at draw time, not reveal time |
+
+## View Function Tests
+
+| Test | What it checks |
+|------|----------------|
+| `testGetDisputeSummary` | Returns correct phase, ruling, vote counts |
+| `testGetJurorStake` | Returns correct stake amount and lock status |
