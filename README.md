@@ -5,44 +5,122 @@
 2. Navigate to root directory
 3. Run `forge test -vv`
 
-## Test Results
+## Phase 3 explanation
 
-### Phase 1
-```
-Ran 6 tests for test/SimpleKlerosPhase1Test.t.sol:SimpleKlerosPhase1Test
-[PASS] testCannotDoubleCommit() (gas: 334242)
-[PASS] testCannotRevealWithWrongSalt() (gas: 337137)
-[PASS] testCannotVoteWithoutSufficientBalance() (gas: 44861)
-[PASS] testCommitRevealSecrecy() (gas: 407935)
-[PASS] testPhase1MajorityWins() (gas: 618653)
-[PASS] testPhase1TokenWeightedVoting() (gas: 601307)
-Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 1.26ms
-```
+### SimpleKlerosPhase3: Simple Explanation
 
-### Phase 2
+#### What Is It?
+
+A decentralized court where jurors stake tokens, vote on disputes, and either **win money** (if they vote with majority) or **lose everything** (if they vote with minority).
+
+---
+
+#### The Flow
+
 ```
-Ran 8 tests for test/SimpleKlerosPhase2Test.t.sol:SimpleKlerosPhase2Test
-[PASS] testCanStakeMultipleTimes() (gas: 140596)
-[PASS] testCanUnstakeAfterFinalization() (gas: 622710)
-[PASS] testCannotStakeBelowMinimum() (gas: 128070)
-[PASS] testCannotUnstakeMoreThanStaked() (gas: 15505)
-[PASS] testCannotUnstakeWhileLocked() (gas: 367772)
-[PASS] testPhase2MajorityWins() (gas: 621757)
-[PASS] testPhase2NoRedistribution() (gas: 629276)
-[PASS] testPhase2StakeBasedWeighting() (gas: 615316)
-Suite result: ok. 8 passed; 0 failed; 0 skipped; finished in 1.34ms
+STAKE → CREATE DISPUTE → DRAW JURORS → COMMIT → REVEAL → FINALIZE
 ```
 
-### Phase 3
+#### 1. Stake
+Jurors lock tokens in the contract to become eligible.
 ```
-Ran 6 tests for test/SimpleKlerosPhase3Test.t.sol:SimpleKlerosPhase3Test
-[PASS] testPhase3AllLoseIfAllMinority() (gas: 600505)
-[PASS] testPhase3CanUnstakeAfterWinning() (gas: 657005)
-[PASS] testPhase3MajorityWinsAndGetsReward() (gas: 645395)
-[PASS] testPhase3NonRevealerLosesEverything() (gas: 569765)
-[PASS] testPhase3ProportionalRewardDistribution() (gas: 637147)
-[PASS] testPhase3TieNoRedistribution() (gas: 609922)
-Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 1.32ms
+J1 stakes 500, J2 stakes 300, J3 stakes 200
+```
+
+#### 2. Create Dispute
+Anyone creates a dispute with evidence (IPFS link).
+
+#### 3. Draw Jurors
+Contract randomly selects jurors and **locks** their stakes. Their voting weight is **snapshot** at this moment.
+
+#### 4. Commit (Secret Voting)
+Each juror submits `hash(vote + salt)` — nobody can see anyone's vote yet.
+```
+J1: hash(1, "abc") → commits
+J2: hash(1, "def") → commits  
+J3: hash(2, "ghi") → commits
+```
+
+#### 5. Reveal
+After commit deadline, jurors reveal their vote + salt. Contract verifies the hash matches.
+```
+Option1: 500 + 300 = 800 weighted votes
+Option2: 200 weighted votes
+```
+
+#### 6. Finalize
+```
+Winner: Option1 (800 > 200)
+
+Losers slashed:  J3 loses 200 tokens
+Winners gain:    J1 gets 125 (5/8 of 200)
+                 J2 gets 75  (3/8 of 200)
+
+Final stakes:    J1: 625, J2: 375, J3: 0
+```
+
+---
+
+#### Key Rules
+
+| Rule | Why |
+|------|-----|
+| **Commit-reveal** | Prevents copying others' votes |
+| **Weight snapshot** | Can't add stake after being selected |
+| **Locked during dispute** | Can't withdraw while voting |
+| **Non-revealers lose** | Forces participation |
+
+---
+
+#### The Economic Logic
+
+```
+"I think others will vote for the obvious truth"
+        ↓
+"If I vote the same, I'm in the majority"
+        ↓
+"I'll take money from the minority"
+        ↓
+Everyone votes honestly → System finds truth
+```
+
+That's the **Kleros loop** — economic self-interest drives honest behavior.
+
+## Phase 3 results (output)
+```
+Ran 31 tests for test/SimpleKlerosPhase3Test.t.sol:SimpleKlerosPhase3Test
+[PASS] testCannotCommitAfterDeadline() (gas: 437070)
+[PASS] testCannotCommitTwice() (gas: 464149)
+[PASS] testCannotCreateDisputeWithoutEnoughJurors() (gas: 1481703)
+[PASS] testCannotDrawJurorsTwice() (gas: 432961)
+[PASS] testCannotFinalizeBeforeRevealDeadline() (gas: 625016)
+[PASS] testCannotRevealAfterDeadline() (gas: 463860)
+[PASS] testCannotRevealBeforeCommitDeadline() (gas: 463470)
+[PASS] testCannotRevealInvalidVoteValue() (gas: 463482)
+[PASS] testCannotRevealTwice() (gas: 514611)
+[PASS] testCannotRevealWithWrongSalt() (gas: 467315)
+[PASS] testCannotRevealWithWrongVote() (gas: 466718)
+[PASS] testCannotStakeBelowMinimum() (gas: 128523)
+[PASS] testCannotStakeZero() (gas: 11708)
+[PASS] testCannotUnstakeMoreThanStaked() (gas: 604053)
+[PASS] testCannotUnstakeWhileLocked() (gas: 435769)
+[PASS] testGetDisputeSummary() (gas: 129371)
+[PASS] testGetJurorStake() (gas: 12444)
+[PASS] testJurorListGrows() (gas: 141528)
+[PASS] testNoOneReveals() (gas: 471552)
+[PASS] testNonJurorCannotCommit() (gas: 437393)
+[PASS] testNonJurorCannotReveal() (gas: 522816)
+[PASS] testOption2Wins() (gas: 640556)
+[PASS] testPhase3AllLoseIfAllMinority() (gas: 601290)
+[PASS] testPhase3CanUnstakeAfterWinning() (gas: 660576)
+[PASS] testPhase3MajorityWinsAndGetsReward() (gas: 649341)
+[PASS] testPhase3NonRevealerLosesEverything() (gas: 595221)
+[PASS] testPhase3ProportionalRewardDistribution() (gas: 640828)
+[PASS] testPhase3TieNoRedistribution() (gas: 610355)
+[PASS] testSingleRevealerTakesAll() (gas: 564139)
+[PASS] testUnanimousVote() (gas: 611828)
+[PASS] testVoteWeightSnapshot() (gas: 435420)
+Suite result: ok. 31 passed; 0 failed; 0 skipped; finished in 4.83ms (5.34ms CPU time)
 ```
 ### All the tests for Phase3
 
