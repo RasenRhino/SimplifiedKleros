@@ -32,10 +32,10 @@ contract SimpleKlerosPhase3 {
     }
 
     struct Vote {
-        bytes32 commit; // keccak256(abi.encodePacked(vote, salt))
-        uint8 revealedVote; // 1 or 2
+        bytes32 commit;      // keccak256(abi.encodePacked(vote, salt))
+        uint8 revealedVote;  // 1 or 2
         bool revealed;
-        uint256 weight; // staked amount at time of selection
+        uint256 weight;      // snapshot of staked amount at time of selection
     }
 
     struct Dispute {
@@ -102,8 +102,6 @@ contract SimpleKlerosPhase3 {
     /// @dev Tokens are locked in the contract
     function stake(uint256 amount) external {
         require(amount > 0, "amount=0");
-
-        // Pull tokens from sender
         require(stakeToken.transferFrom(msg.sender, address(this), amount), "transferFrom failed");
 
         JurorStake storage js = stakes[msg.sender];
@@ -164,6 +162,10 @@ contract SimpleKlerosPhase3 {
             if (!_isJuror(id, juror) && stakes[juror].amount >= minStake && !stakes[juror].locked) {
                 d.jurors.push(juror);
                 stakes[juror].locked = true; // Lock their stake
+
+                // 🔹 SNAPSHOT weight at selection time
+                Vote storage v = d.votes[juror];
+                v.weight = stakes[juror].amount;
             }
 
             nonce++;
@@ -195,7 +197,7 @@ contract SimpleKlerosPhase3 {
     }
 
     /// @notice Juror reveals their vote by providing (vote, salt)
-    /// @dev Voting weight = juror's STAKED amount
+    /// @dev Voting weight = juror's SNAPSHOT stake at selection time
     function revealVote(uint256 id, uint8 vote, bytes32 salt) external {
         require(vote == 1 || vote == 2, "invalid vote");
 
@@ -214,13 +216,11 @@ contract SimpleKlerosPhase3 {
         bytes32 expected = keccak256(abi.encodePacked(vote, salt));
         require(expected == v.commit, "bad reveal");
 
-        // Weight is based on STAKED amount
-        uint256 weight = stakes[msg.sender].amount;
-        require(weight >= minStake, "stake too low");
+        uint256 weight = v.weight;
+        require(weight >= minStake, "snapshot stake too low");
 
         v.revealed = true;
         v.revealedVote = vote;
-        v.weight = weight;
 
         if (vote == 1) {
             d.weightedVotesOption1 += weight;
@@ -235,7 +235,11 @@ contract SimpleKlerosPhase3 {
     /// @dev PHASE 3 KEY FEATURE: Redistributes stakes from minority to majority
     function finalize(uint256 id) external {
         Dispute storage d = disputes[id];
-        require(d.phase == Phase.Reveal, "wrong phase");
+        // Allow finalize even if nobody revealed (phase could still be Commit)
+        require(
+            d.phase == Phase.Reveal || d.phase == Phase.Commit,
+            "wrong phase"
+        );
         require(block.timestamp > d.revealDeadline, "reveal not finished");
 
         // Determine ruling
@@ -264,59 +268,62 @@ contract SimpleKlerosPhase3 {
 
     /// @notice PHASE 3: Redistribute stakes from minority to majority
     function _redistributeStakes(uint256 id, Dispute storage d) internal {
-        // Separate jurors into winners and losers
-        address[] memory winners = new address[](d.jurors.length);
-        address[] memory losers = new address[](d.jurors.length);
-        uint256 winnerCount = 0;
-        uint256 loserCount = 0;
-        uint256 totalSlashed = 0;
-
         uint8 winningVote = d.ruling == Ruling.Option1 ? 1 : 2;
 
-        // Categorize jurors and calculate total slashed amount
+        // First pass: compute total slashed and total winner weight (based on snapshot weight)
+        uint256 totalSlashed = 0;
+        uint256 totalWinnerWeight = 0;
+
         for (uint256 i = 0; i < d.jurors.length; i++) {
             address juror = d.jurors[i];
             Vote storage v = d.votes[juror];
 
-            if (v.revealed) {
-                if (v.revealedVote == winningVote) {
-                    winners[winnerCount++] = juror;
-                } else {
-                    losers[loserCount++] = juror;
-                    totalSlashed += stakes[juror].amount;
+            bool isWinner = v.revealed && v.revealedVote == winningVote;
+            if (isWinner) {
+                totalWinnerWeight += v.weight;
+            }
+        }
+
+        // Second pass: slash losers (including non-revealers)
+        for (uint256 i = 0; i < d.jurors.length; i++) {
+            address juror = d.jurors[i];
+            Vote storage v = d.votes[juror];
+
+            bool isWinner = v.revealed && v.revealedVote == winningVote;
+            if (!isWinner) {
+                // loser (wrong vote or failed to reveal)
+                uint256 stakeAmt = stakes[juror].amount;
+                if (stakeAmt > 0) {
+                    // For simplicity: slash ENTIRE stake
+                    totalSlashed += stakeAmt;
+                    stakes[juror].amount = 0;
+
+                    emit StakeRedistributed(id, juror, address(0), stakeAmt);
                 }
-            } else {
-                // Didn't reveal = automatic loser
-                losers[loserCount++] = juror;
-                totalSlashed += stakes[juror].amount;
+                stakes[juror].locked = false;
             }
         }
 
-        // Slash losers
-        for (uint256 i = 0; i < loserCount; i++) {
-            address loser = losers[i];
-            uint256 slashedAmount = stakes[loser].amount;
-            stakes[loser].amount = 0;
-            stakes[loser].locked = false;
+        // Third pass: distribute slashed stakes to winners proportionally to snapshot weight
+        if (totalSlashed > 0 && totalWinnerWeight > 0) {
+            for (uint256 i = 0; i < d.jurors.length; i++) {
+                address juror = d.jurors[i];
+                Vote storage v = d.votes[juror];
 
-            emit StakeRedistributed(id, loser, address(0), slashedAmount);
-        }
+                bool isWinner = v.revealed && v.revealedVote == winningVote;
+                if (isWinner) {
+                    uint256 reward = (totalSlashed * v.weight) / totalWinnerWeight;
+                    stakes[juror].amount += reward;
+                    stakes[juror].locked = false;
 
-        // Distribute slashed stakes to winners proportionally
-        if (winnerCount > 0 && totalSlashed > 0) {
-            uint256 totalWinnerWeight = 0;
-            for (uint256 i = 0; i < winnerCount; i++) {
-                totalWinnerWeight += stakes[winners[i]].amount;
+                    emit StakeRedistributed(id, address(0), juror, reward);
+                }
             }
-
-            for (uint256 i = 0; i < winnerCount; i++) {
-                address winner = winners[i];
-                // Calculate proportional share based on their stake
-                uint256 reward = (totalSlashed * stakes[winner].amount) / totalWinnerWeight;
-                stakes[winner].amount += reward;
-                stakes[winner].locked = false;
-
-                emit StakeRedistributed(id, address(0), winner, reward);
+        } else {
+            // No slashing or no winners: just unlock winners
+            for (uint256 i = 0; i < d.jurors.length; i++) {
+                address juror = d.jurors[i];
+                stakes[juror].locked = false;
             }
         }
     }
