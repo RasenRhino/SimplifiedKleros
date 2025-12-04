@@ -1,1839 +1,805 @@
 No files changed, compilation skipped
 
-Ran 30 tests for test/SimpleKlerosPhase3Test.t.sol:SimpleKlerosPhase3Test
-[PASS] testCannotCommitAfterDeadline() (gas: 452566)
+Ran 34 tests for test/SimpleKlerosPhase3Test.t.sol:SimpleKlerosPhase3Test
+[PASS] testCanUnstakeAfterDispute() (gas: 621310)
 Logs:
   
   ============================================================
-  Bootstrap Environment
+  TEST: Winners Can Withdraw Their Rewards
+  ============================================================
+  
+    >> After a dispute is resolved, jurors can withdraw their stake.
+    >> Winners can withdraw their original stake PLUS their share of the losers' stake!
+  
+  STEP 1 : Create and complete a dispute
   ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
-  ============================================================
+    Dispute completed. All jurors voted the same way (no losers).
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
-  
-  ============================================================
-  Cannot Commit After Commit Deadline
+  STEP 2 : Check juror's stake status
   ------------------------------------------------------------
-  Once the commit window is closed, further commits are rejected.
-  ============================================================
+    Juror 1's stake: 300 tokens
+    Juror 1's locked amount: 0 tokens
   
-  STEP: Commit after deadline must revert with 'commit over'
+  STEP 3 : Juror withdraws some tokens
+  ------------------------------------------------------------
+    Token balance before unstaking: 9700 tokens
+    Token balance after unstaking: 9800 tokens
+    Tokens received: 100 tokens
+  
+  SUCCESS: Juror was able to withdraw their tokens!
 
-[PASS] testCannotCommitTwice() (gas: 482346)
+[PASS] testCannotCommitAfterDeadline() (gas: 459234)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Cannot Commit After Deadline
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> The commit window is limited (1 hour in our tests).
+    >> Late commits are rejected.
+    Commit deadline: 1 hour from dispute creation
+    Fast-forwarding time by 2 hours...
+    Current time: 2 hours later (deadline passed!)
   
-  ============================================================
-  Double Commit Forbidden
-  ------------------------------------------------------------
-  A juror who has already committed a vote cannot commit again for the same dispute.
-  ============================================================
+    Trying to commit a vote...
+    BLOCKED! Too late to vote.
   
-  STEP: First commit succeeds
-  STEP: Second commit from same juror must revert with 'already committed'
+  SUCCESS: Late commits are rejected!
 
-[PASS] testCannotCreateDisputeWithoutEnoughJurors() (gas: 1500653)
+[PASS] testCannotCommitTwice() (gas: 489485)
 Logs:
   
   ============================================================
-  Bootstrap Environment
+  TEST: Cannot Submit Vote Twice
+  ============================================================
+  
+    >> Once you've committed your vote, you can't change it.
+    >> This prevents manipulation and 'vote changing' after seeing others' behavior.
+  
+  STEP 1 : Juror commits their first vote
   ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
-  ============================================================
+    First vote committed successfully.
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
-  
-  ============================================================
-  Cannot Create Dispute Without Enough Jurors
+  STEP 2 : Juror tries to commit again
   ------------------------------------------------------------
-  If the system requires more jurors than currently staked addresses, dispute creation fails.
-  ============================================================
+    Attempting to submit a second vote...
+    BLOCKED! System rejected the second vote.
   
-  STEP: Only one juror stakes, so there are not enough jurors
-  STEP: Creating a dispute must revert with 'not enough jurors'
+  SUCCESS: Double voting is prevented!
 
-[PASS] testCannotDrawJurorsTwice() (gas: 450749)
+[PASS] testCannotDrawJurorsTwice() (gas: 454552)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Cannot Draw Jurors Twice
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> Once jurors are selected for a dispute, you can't re-draw.
+    >> This prevents manipulation of jury selection.
+    First juror draw...
+    SUCCESS: Jurors selected.
   
-  ============================================================
-  Cannot Draw Jurors Twice
-  ------------------------------------------------------------
-  Once jurors have been drawn for a dispute, the phase changes and re-draw is disallowed.
-  ============================================================
+    Trying to draw jurors again...
+    BLOCKED! Jurors already selected.
   
-  STEP: First draw succeeds
-  STEP: Second draw must revert with 'wrong phase'
+  SUCCESS: Double-drawing is prevented!
 
-[PASS] testCannotFinalizeBeforeRevealDeadline() (gas: 645428)
+[PASS] testCannotFinalizeBeforeRevealDeadline() (gas: 587693)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Cannot Finalize Early
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> The dispute cannot be finalized until the reveal deadline passes.
+    >> This gives ALL jurors time to reveal their votes.
+    All jurors have revealed their votes.
+    BUT the reveal deadline hasn't passed yet!
   
-  ============================================================
-  Cannot Finalize Before Reveal Deadline
-  ------------------------------------------------------------
-  Even if all votes are revealed early, the contract enforces the full reveal period.
-  ============================================================
+    Trying to finalize early...
+    BLOCKED! Must wait for reveal deadline.
   
-  STEP: All jurors commit vote=1
-  STEP: All jurors reveal early
-  STEP: Attempt to finalize before reveal deadline must revert
+  SUCCESS: Early finalization is prevented!
 
-[PASS] testCannotRevealAfterDeadline() (gas: 482057)
+[PASS] testCannotRevealAfterDeadline() (gas: 484523)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Cannot Reveal After Deadline
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> The reveal window is also limited.
+    >> If you don't reveal in time, you're treated as a non-participant.
+    Juror committed their vote.
+    Fast-forwarding 3 hours (past BOTH deadlines)...
+    Trying to reveal now...
+    BLOCKED! Reveal window has closed.
   
-  ============================================================
-  Cannot Reveal After Reveal Deadline
-  ------------------------------------------------------------
-  Reveal attempts after the reveal window are rejected.
-  ============================================================
-  
-  STEP: Commit within time
-  STEP: Reveal after both commit and reveal windows must revert with 'reveal over'
+  SUCCESS: Late reveals are rejected!
 
-[PASS] testCannotRevealBeforeCommitDeadline() (gas: 481667)
+[PASS] testCannotRevealBeforeCommitDeadline() (gas: 485387)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Cannot Reveal Too Early
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> The reveal phase only starts AFTER the commit deadline.
+    >> You can't reveal early to see others' commits!
+    Juror committed their vote.
+    Commit deadline: 1 hour from now
+    Current time: RIGHT NOW (too early!)
   
-  ============================================================
-  Cannot Reveal Before Commit Phase Ends
-  ------------------------------------------------------------
-  Reveal phase only starts after the commit deadline has passed.
-  ============================================================
+    Trying to reveal immediately...
+    BLOCKED! Must wait for commit phase to end.
   
-  STEP: Commit a vote
-  STEP: Attempt to reveal immediately must revert with 'commit not finished'
+  SUCCESS: Early reveals are prevented!
 
-[PASS] testCannotRevealInvalidVoteValue() (gas: 478636)
+[PASS] testCannotRevealInvalidVoteValue() (gas: 482657)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Vote Must Be Option 1 or Option 2
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> You can only vote for Option 1 or Option 2.
+    >> Trying to vote for 'Option 3' or any other value fails.
+    Trying to reveal vote for 'Option 3'...
+    BLOCKED! Only 1 or 2 are valid votes.
   
-  ============================================================
-  Invalid Vote Values Rejected
-  ------------------------------------------------------------
-  Only vote values 1 or 2 are accepted at reveal time.
-  ============================================================
-  
-  STEP: Reveal with vote=3 must revert with 'invalid vote'
+  SUCCESS: Invalid vote values are rejected!
 
-[PASS] testCannotRevealTwice() (gas: 532058)
+[PASS] testCannotRevealTwice() (gas: 536821)
 Logs:
   
   ============================================================
-  Bootstrap Environment
+  TEST: Cannot Reveal Vote Twice
+  ============================================================
+  
+  
+  STEP 1 : Juror reveals their vote
   ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
-  ============================================================
+    First reveal: SUCCESS
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
-  
-  ============================================================
-  Double Reveal Forbidden
+  STEP 2 : Juror tries to reveal again
   ------------------------------------------------------------
-  A juror may reveal only once for each dispute.
-  ============================================================
+    Attempting second reveal...
+    BLOCKED! Already revealed.
   
-  STEP: First reveal succeeds
-  STEP: Second reveal must revert with 'already revealed'
+  SUCCESS: Double-reveal is prevented!
 
-[PASS] testCannotRevealWithWrongSalt() (gas: 482814)
+[PASS] testCannotRevealWithWrongSalt() (gas: 494036)
 Logs:
   
   ============================================================
-  Bootstrap Environment
+  TEST: Cannot Reveal With Wrong Secret
+  ============================================================
+  
+    >> When you commit a vote, you use a secret 'salt' to encrypt it.
+    >> You must use the SAME salt when revealing, or the reveal fails.
+    >> This proves you're revealing the same vote you originally committed.
+  
+  STEP 1 : Juror commits with their secret
   ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
-  ============================================================
+    Committed vote with secret: 'correctSalt'
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
-  
-  ============================================================
-  Reveal Fails with Wrong Salt
+  STEP 2 : Juror tries to reveal with WRONG secret
   ------------------------------------------------------------
-  Commitment binding: revealing with a different salt than used in commit causes revert.
-  ============================================================
+    Trying to reveal with secret: 'wrongSalt'...
+    BLOCKED! The secrets don't match.
   
-  STEP: Reveal with wrong salt must fail with 'bad reveal'
+  SUCCESS: You can't cheat by using a different secret!
 
-[PASS] testCannotRevealWithWrongVote() (gas: 482227)
+[PASS] testCannotRevealWithWrongVote() (gas: 491935)
 Logs:
   
   ============================================================
-  Bootstrap Environment
+  TEST: Cannot Reveal Different Vote Than Committed
+  ============================================================
+  
+    >> You can't commit 'Option 1' then reveal 'Option 2'.
+    >> The cryptographic hash must match exactly.
+  
+  STEP 1 : Juror commits vote for Option 1
   ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
-  ============================================================
+    Committed: Option 1
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
-  
-  ============================================================
-  Reveal Fails with Wrong Vote
+  STEP 2 : Juror tries to reveal as Option 2
   ------------------------------------------------------------
-  Commitment binding: revealing with a different vote than in the commit causes revert.
-  ============================================================
+    Trying to reveal: Option 2...
+    BLOCKED! Can't change your vote after committing.
   
-  STEP: Reveal with vote=2 while commit was for vote=1 must fail
+  SUCCESS: Vote changing is impossible!
 
-[PASS] testCannotStakeBelowMinimum() (gas: 144129)
+[PASS] testCannotStakeBelowMinimum() (gas: 140762)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Must Stake At Least Minimum Amount
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> To be a juror, you must stake at least 100 tokens.
+    >> This prevents spam and ensures jurors have something to lose.
+    Minimum stake required: 100 tokens
+    Trying to stake only 50 tokens...
+    BLOCKED! Stake too low.
   
-  ============================================================
-  Cannot Stake Below Minimum
-  ------------------------------------------------------------
-  New jurors must stake at least the configured minStake.
-  ============================================================
-  
-  STEP: newJuror attempts to stake only 50 tokens (below 100 min)
+  SUCCESS: Minimum stake is enforced!
 
-[PASS] testCannotStakeZero() (gas: 23824)
+[PASS] testCannotStakeZero() (gas: 20508)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Cannot Stake Zero Tokens
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    Trying to stake 0 tokens...
+    BLOCKED! Can't stake nothing.
   
-  ============================================================
-  Cannot Stake Zero
-  ------------------------------------------------------------
-  Staking 0 tokens is rejected.
-  ============================================================
-  
+  SUCCESS: Zero stakes are rejected!
 
-[PASS] testCannotUnstakeMoreThanStaked() (gas: 745436)
+[PASS] testCannotUnstakeMoreThanAvailable() (gas: 587193)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
-  ============================================================
-  
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
-  
-  ============================================================
-  Cannot Unstake More Than Staked
-  ------------------------------------------------------------
-  A juror cannot withdraw more than their total stake.
+  TEST: Cannot Unstake More Than You Have
   ============================================================
   
   
-  ============================================================
-  Helper: Complete Dispute with Unanimous Option1
+  STEP 1 : Complete a dispute to unlock stake
   ------------------------------------------------------------
-  All jurors vote Option1 and reveal, producing a simple winner scenario.
-  ============================================================
+    Dispute 1 completed. Stake unlocked.
   
-  STEP: All jurors commit Option1
-  STEP: All jurors reveal Option1
-  
+  STEP 2 : Try to unstake way more than staked
   ------------------------------------------------------------
-                 Human-readable Dispute Summary               
-  ------------------------------------------------------------
-  Dispute ID: 1
-  Final phase: Resolved
-  Final ruling: Option1
-  Total voting weight for Option1 (tokens): 1000
-  Total voting weight for Option2 (tokens): 0
+    Trying to unstake 10,000 tokens (way more than staked)...
+    BLOCKED! Can't withdraw more than you have.
   
-  Per-juror breakdown (stake snapshot, final stake, vote, outcome):
-  
-  Juror index: 0
-  Juror address: 0x0000000000000000000000000000000000000001
-  Voting weight at selection (tokens): 500
-  Final stake after dispute (tokens): 500
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  
-  Juror index: 1
-  Juror address: 0x0000000000000000000000000000000000000003
-  Voting weight at selection (tokens): 200
-  Final stake after dispute (tokens): 200
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  
-  Juror index: 2
-  Juror address: 0x0000000000000000000000000000000000000002
-  Voting weight at selection (tokens): 300
-  Final stake after dispute (tokens): 300
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  ------------------------------------------------------------
-  
-  helper dispute id: 1
-  juror1 before over-unstake addr: 0x0000000000000000000000000000000000000001
-  juror1 before over-unstake stake (tokens): 500
-  juror1 before over-unstake locked (0/1): 0
-  STEP: juror1 attempts to unstake 10,000 tokens and must revert
+  SUCCESS: Over-withdrawal is prevented!
 
-[PASS] testCannotUnstakeWhileLocked() (gas: 451623)
+[PASS] testCannotUnstakeWhileLocked() (gas: 461995)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Cannot Unstake While Serving as Juror
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> When you're selected as a juror, your stake is LOCKED.
+    >> You can't withdraw until the dispute is resolved.
+    >> This ensures jurors have 'skin in the game'.
+    Juror 1's total stake: 300 tokens
+    Juror 1's locked stake: 200 tokens
+    Juror 1's available stake: 100 tokens
   
-  ============================================================
-  Cannot Unstake While Selected as Juror
-  ------------------------------------------------------------
-  A juror whose stake is locked in an active dispute cannot unstake.
-  ============================================================
+    Trying to unstake ALL tokens...
+    BLOCKED! Can only unstake unlocked portion.
   
-  STEP: First juror tries to unstake while locked and must revert
+  SUCCESS: Locked stake cannot be withdrawn!
 
-[PASS] testGetDisputeSummary() (gas: 151977)
+[PASS] testFix_CorrectTotalStakeAfterMultipleSelections() (gas: 499015)
 Logs:
   
   ============================================================
-  Bootstrap Environment
+  BUG FIX TEST: Correct Available Stake Tracking
+  ============================================================
+  
+    >> This test verifies that available stake is correctly tracked
+    >> as jurors get selected multiple times within a single drawJurors call.
+  
+  STEP 1 : Check initial state
   ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
-  ============================================================
+    Before any dispute:
+      Juror1: stake= 500 , locked= 0
+      Juror2: stake= 300 , locked= 0
+      Juror3: stake= 200 , locked= 0
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
-  
-  ============================================================
-  Basic Dispute Summary After Creation
+  STEP 2 : Create dispute and draw jurors
   ------------------------------------------------------------
-  Immediately after creation, a dispute is in 'Created' phase with no ruling or votes.
-  ============================================================
   
-  phase: Created
-  ruling: Undecided
-  Option1 weight (tokens): 0
-  Option2 weight (tokens): 0
+  STEP 3 : Verify locked amounts match selection counts
+  ------------------------------------------------------------
+  
+    Juror 1 :
+      Selection count: 2
+      Locked in this dispute: 200 tokens
+      Total locked (global): 200 tokens
+      Expected locked: 200 tokens
+  
+    Juror 2 :
+      Selection count: 1
+      Locked in this dispute: 100 tokens
+      Total locked (global): 100 tokens
+      Expected locked: 100 tokens
+  
+    Total locked across all jurors: 300 tokens
+    Expected (3 draws x 100 minStake): 300 tokens
+  
+  SUCCESS: Stake tracking is correct after multiple selections!
 
-[PASS] testGetJurorStake() (gas: 29037)
+[PASS] testFix_NoDoSWhenJurorHasInsufficientStake() (gas: 4098310)
 Logs:
   
   ============================================================
-  Bootstrap Environment
+  BUG FIX TEST: No DoS When Juror Has Insufficient Stake
+  ============================================================
+  
+    >> ORIGINAL BUG: If a selected juror didn't have enough unlocked stake,
+    >> the entire drawJurors transaction would REVERT.
+    >> An attacker could exploit this to prevent any disputes from being created.
+  
+    >> FIX: Instead of reverting, retry with a different random selection.
+  
+  STEP 1 : Create scenario with mixed stake availability
   ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
-  ============================================================
+    Rich juror: 500 tokens staked (can be selected up to 5 times)
+    Poor juror: 100 tokens staked (can only be selected ONCE)
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    If poor juror is selected twice, the second selection should
+    be retried with a new random number (not revert!)
   
-  ============================================================
-  Simple Stake View
+  STEP 2 : Draw jurors multiple times to stress test
   ------------------------------------------------------------
-  Check that the initial stake for juror1 is correctly recorded and not locked.
-  ============================================================
+    Completed 5 disputes successfully!
   
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
+  SUCCESS: No DoS! The retry mechanism handles insufficient stake.
 
-[PASS] testJurorListGrows() (gas: 161388)
+[PASS] testFix_StaleTotalStakeInDrawLoop() (gas: 2040251)
 Logs:
   
   ============================================================
-  Bootstrap Environment
+  BUG FIX TEST: Stale totalStake in Draw Loop
+  ============================================================
+  
+    >> ORIGINAL BUG: totalStake was calculated ONCE at the start of drawJurors.
+    >> As jurors got selected, their lockedAmount increased, reducing available stake.
+    >> But the random target was still based on the OLD totalStake!
+    >> This could cause target > actual cumulative, hitting the fallback.
+  
+    >> FIX: Recalculate totalStake for EACH draw iteration.
+  
+  STEP 1 : Create a scenario with limited stake
   ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
-  ============================================================
+    Created juror with 500 tokens staked (exactly 5 x minStake).
+    Initial available stake: 500 tokens
+    After draw 1: 400 tokens available
+    After draw 2: 300 tokens available
+    ... and so on
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    WITHOUT THE FIX: Random target could be 0-499, but actual
+    cumulative drops each iteration. Target 450 with cumulative 300
+    would hit the fallback!
   
-  ============================================================
-  Juror List Grows as New Jurors Stake
+  STEP 2 : Draw jurors - this should work with the fix
   ------------------------------------------------------------
-  Whenever a new address stakes for the first time, it is added to the juror list.
-  ============================================================
+    Total selections made: 5
+    Juror's selection count: 5
   
-  initial juror count: 3
-  STEP: newJuror stakes exactly the minimum (100 tokens)
-  new juror count: 4
+  SUCCESS: The stale totalStake bug is fixed!
+  Each draw correctly recalculates available stake.
 
-[PASS] testNoOneReveals() (gas: 591467)
+[PASS] testGetDisputeSummary() (gas: 164701)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Get Dispute Summary
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    Created dispute 1
   
-  ============================================================
-  No One Reveals: Dispute Undecided
-  ------------------------------------------------------------
-  All jurors commit, but none reveals. The ruling remains 'Undecided' and no redistribution happens.
-  ============================================================
-  
-  STEP: All jurors commit a vote, but none will reveal later
-  
-  ------------------------------------------------------------
-                 Human-readable Dispute Summary               
-  ------------------------------------------------------------
-  Dispute ID: 1
-  Final phase: Resolved
-  Final ruling: Undecided
-  Total voting weight for Option1 (tokens): 0
-  Total voting weight for Option2 (tokens): 0
-  
-  Per-juror breakdown (stake snapshot, final stake, vote, outcome):
-  
-  Juror index: 0
-  Juror address: 0x0000000000000000000000000000000000000001
-  Voting weight at selection (tokens): 500
-  Final stake after dispute (tokens): 500
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 0
-  Vote: did NOT reveal (treated as loser)
-  Outcome for this juror: no redistribution (tie / undecided)
-  
-  Juror index: 1
-  Juror address: 0x0000000000000000000000000000000000000003
-  Voting weight at selection (tokens): 200
-  Final stake after dispute (tokens): 200
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 0
-  Vote: did NOT reveal (treated as loser)
-  Outcome for this juror: no redistribution (tie / undecided)
-  
-  Juror index: 2
-  Juror address: 0x0000000000000000000000000000000000000002
-  Voting weight at selection (tokens): 300
-  Final stake after dispute (tokens): 300
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 0
-  Vote: did NOT reveal (treated as loser)
-  Outcome for this juror: no redistribution (tie / undecided)
-  ------------------------------------------------------------
-  
+    DISPUTE STATUS:
+      Phase: Created
+      Ruling: Undecided (Tie)
+      Votes for Option 1: 0
+      Votes for Option 2: 0
+      Total juror selections: 0
 
-[PASS] testNonJurorCannotCommit() (gas: 452885)
+[PASS] testGetJurorStake() (gas: 22450)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Get Juror Stake Information
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
-  
-  ============================================================
-  Non-Juror Cannot Commit
-  ------------------------------------------------------------
-  An address that was not selected as juror cannot participate in commit.
-  ============================================================
-  
-  STEP: nonJuror attempts to commit and should revert
+    ALICE'S (juror1) STAKE INFO:
+      Total staked: 500 tokens
+      Currently locked: 0 tokens
+      Available to withdraw: 500 tokens
 
-[PASS] testNonJurorCannotReveal() (gas: 540251)
+[PASS] testGetTotalSelections() (gas: 449614)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Get Total Selections Count
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
-  
-  ============================================================
-  Non-Juror Cannot Reveal
-  ------------------------------------------------------------
-  Only selected jurors can reveal; non-jurors are rejected.
-  ============================================================
-  
-  STEP: All jurors commit a vote
-  STEP: nonJuror tries to reveal and must revert
+    Before drawing jurors...
+      Total selections: 0
+    After drawing jurors...
+      Total selections: 3
 
-[PASS] testOption2Wins() (gas: 814623)
+[PASS] testJurorCanBeSelectedMultipleTimes() (gas: 2007130)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Same Juror Can Be Selected Multiple Times
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> Unlike traditional juries, Kleros allows the same person to be picked multiple times.
+    >> Each selection gives them +1 voting power.
+    >> If Alice is picked 3 times, her vote counts as 3 votes!
   
-  ============================================================
-  Option2 Wins
+  STEP 1 : Create a court with 5 draws and one dominant juror
   ------------------------------------------------------------
-  Check that the system correctly handles the case where Option2 gets the majority of voting weight.
-  ============================================================
+    Created a juror with 5000 tokens staked (very high!)
+    They should be picked multiple times due to weighted selection.
   
-  
-  --------- Current Juror Panel (addresses, stake, lock) ---------
-  jurorIndex: 0
-  juror addr: 0x0000000000000000000000000000000000000001
-  stake (tokens): 500
-  locked (0/1): 1
-  jurorIndex: 1
-  juror addr: 0x0000000000000000000000000000000000000003
-  stake (tokens): 200
-  locked (0/1): 1
-  jurorIndex: 2
-  juror addr: 0x0000000000000000000000000000000000000002
-  stake (tokens): 300
-  locked (0/1): 1
-  ----------------------------------------------------------------
-  
-  Classifying jurors by stake (big=500, med=300, small=200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000001
-  candidate stake (tokens): 500
-  -> identified bigJuror (500 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000003
-  candidate stake (tokens): 200
-  -> identified smallJuror (200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000002
-  candidate stake (tokens): 300
-  -> identified medJuror (300 tokens)
-  bigJuror: 0x0000000000000000000000000000000000000001
-  medJuror: 0x0000000000000000000000000000000000000002
-  smallJuror: 0x0000000000000000000000000000000000000003
-  STEP: Commit: big+med vote Option2, small votes Option1
-  STEP: Reveal all and finalize; Option2 should win
-  
-  ------------------------------------------------------------
-                 Human-readable Dispute Summary               
-  ------------------------------------------------------------
-  Dispute ID: 1
-  Final phase: Resolved
-  Final ruling: Option2
-  Total voting weight for Option1 (tokens): 200
-  Total voting weight for Option2 (tokens): 800
-  
-  Per-juror breakdown (stake snapshot, final stake, vote, outcome):
-  
-  Juror index: 0
-  Juror address: 0x0000000000000000000000000000000000000001
-  Voting weight at selection (tokens): 500
-  Final stake after dispute (tokens): 625
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option2
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  
-  Juror index: 1
-  Juror address: 0x0000000000000000000000000000000000000003
-  Voting weight at selection (tokens): 200
-  Final stake after dispute (tokens): 0
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: loser (voted against the majority and may be slashed)
-  
-  Juror index: 2
-  Juror address: 0x0000000000000000000000000000000000000002
-  Voting weight at selection (tokens): 300
-  Final stake after dispute (tokens): 375
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option2
-  Outcome for this juror: winner (voted with the majority and receives stake)
+  STEP 2 : Create dispute and draw jurors
   ------------------------------------------------------------
   
+  STEP 3 : Check how many times the big juror was selected
+  ------------------------------------------------------------
+    Big juror was selected 5 times out of 5 draws!
+    This means their vote counts as 5 votes.
+  
+  SUCCESS: Multi-selection is working!
 
-[PASS] testPhase3AllLoseIfAllMinority() (gas: 780222)
+[PASS] testLoserGetsSlashed() (gas: 2510776)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Losing Jurors Get Their Stake Slashed
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> When you vote against the majority, you LOSE your locked stake.
+    >> This is the 'skin in the game' mechanism that makes jurors vote honestly.
+    >> If you vote wrong, you lose real money!
   
-  ============================================================
-  Tie: No Redistribution, Ruling Undecided
+  STEP 1 : Set up a court with balanced jurors
   ------------------------------------------------------------
-  Weights for Option1 and Option2 are equal (500 vs 500). The system declares the ruling 'Undecided' and no stake is redistributed.
-  ============================================================
+    Created 3 jurors, each with 500 tokens staked.
   
-  STEP: Create dispute and draw jurors
-  created dispute id: 1
-  
-  --------- Current Juror Panel (addresses, stake, lock) ---------
-  jurorIndex: 0
-  juror addr: 0x0000000000000000000000000000000000000001
-  stake (tokens): 500
-  locked (0/1): 1
-  jurorIndex: 1
-  juror addr: 0x0000000000000000000000000000000000000003
-  stake (tokens): 200
-  locked (0/1): 1
-  jurorIndex: 2
-  juror addr: 0x0000000000000000000000000000000000000002
-  stake (tokens): 300
-  locked (0/1): 1
-  ----------------------------------------------------------------
-  
-  Classifying jurors by stake (big=500, med=300, small=200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000001
-  candidate stake (tokens): 500
-  -> identified bigJuror (500 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000003
-  candidate stake (tokens): 200
-  -> identified smallJuror (200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000002
-  candidate stake (tokens): 300
-  -> identified medJuror (300 tokens)
-  bigJuror: 0x0000000000000000000000000000000000000001
-  medJuror: 0x0000000000000000000000000000000000000002
-  smallJuror: 0x0000000000000000000000000000000000000003
-  STEP: Commit: big->Option1 (500), med+small->Option2 (300+200)
-  STEP: Reveal all votes and finalize
-  
-  ------------------------------------------------------------
-                 Human-readable Dispute Summary               
-  ------------------------------------------------------------
-  Dispute ID: 1
-  Final phase: Resolved
-  Final ruling: Undecided
-  Total voting weight for Option1 (tokens): 500
-  Total voting weight for Option2 (tokens): 500
-  
-  Per-juror breakdown (stake snapshot, final stake, vote, outcome):
-  
-  Juror index: 0
-  Juror address: 0x0000000000000000000000000000000000000001
-  Voting weight at selection (tokens): 500
-  Final stake after dispute (tokens): 500
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: no redistribution (tie / undecided)
-  
-  Juror index: 1
-  Juror address: 0x0000000000000000000000000000000000000003
-  Voting weight at selection (tokens): 200
-  Final stake after dispute (tokens): 200
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option2
-  Outcome for this juror: no redistribution (tie / undecided)
-  
-  Juror index: 2
-  Juror address: 0x0000000000000000000000000000000000000002
-  Voting weight at selection (tokens): 300
-  Final stake after dispute (tokens): 300
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option2
-  Outcome for this juror: no redistribution (tie / undecided)
+  STEP 2 : Create dispute and draw jurors
   ------------------------------------------------------------
   
+  STEP 3 : Find the juror with lowest voting power (they'll be our loser)
+  ------------------------------------------------------------
+    Juror 1 voting power: 3
+    Juror 2 voting power: 2
+  
+    DESIGNATED LOSER: Juror 2
+    Their stake before dispute: 500 tokens
+    Their locked stake (at risk): 200 tokens
+  
+  STEP 4 : Voting - loser votes differently from everyone else
+  ------------------------------------------------------------
+    Juror 1 (WINNER) votes Option 2
+    Juror 2 (LOSER) votes Option 1
+  
+  STEP 5 : Finalize dispute and check the damage
+  ------------------------------------------------------------
+  
+    LOSER'S FINANCIAL SITUATION:
+      Stake before: 500 tokens
+      Stake after: 300 tokens
+      TOKENS LOST: 200 tokens
+  
+  SUCCESS: The loser was slashed exactly as expected!
+  Their lost tokens were redistributed to the winning jurors.
 
-[PASS] testPhase3CanUnstakeAfterWinning() (gas: 849796)
+[PASS] testMajorityWinsAndGetsReward() (gas: 660816)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Majority Wins and Gets Rewards
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> This is how Kleros dispute resolution works:
+    >> 1. Jurors vote on Option 1 or Option 2
+    >> 2. The option with more voting weight wins
+    >> 3. Losing jurors have their stake taken and given to winners
   
-  ============================================================
-  Winner Can Unstake Rewards After Dispute
+  STEP 1 : Create a dispute and draw jurors
   ------------------------------------------------------------
-  After winning and receiving rewards, a juror can unstake some tokens and withdraw them as liquid balance.
-  ============================================================
+    Number of unique jurors selected: 2
   
-  STEP: Create dispute, draw jurors and show panel
-  created dispute id: 1
-  
-  --------- Current Juror Panel (addresses, stake, lock) ---------
-  jurorIndex: 0
-  juror addr: 0x0000000000000000000000000000000000000001
-  stake (tokens): 500
-  locked (0/1): 1
-  jurorIndex: 1
-  juror addr: 0x0000000000000000000000000000000000000003
-  stake (tokens): 200
-  locked (0/1): 1
-  jurorIndex: 2
-  juror addr: 0x0000000000000000000000000000000000000002
-  stake (tokens): 300
-  locked (0/1): 1
-  ----------------------------------------------------------------
-  
-  Classifying jurors by stake (big=500, med=300, small=200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000001
-  candidate stake (tokens): 500
-  -> identified bigJuror (500 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000003
-  candidate stake (tokens): 200
-  -> identified smallJuror (200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000002
-  candidate stake (tokens): 300
-  -> identified medJuror (300 tokens)
-  bigJuror: 0x0000000000000000000000000000000000000001
-  medJuror: 0x0000000000000000000000000000000000000002
-  smallJuror: 0x0000000000000000000000000000000000000003
-  STEP: Commit: big+med vote Option1, small votes Option2
-  STEP: Reveal all votes and finalize
-  
+  STEP 2 : Check who was selected and their voting power
   ------------------------------------------------------------
-                 Human-readable Dispute Summary               
+    Juror 1 voting power: 2
+    Juror 2 voting power: 1
+    Total voting power: 3
+  
+  STEP 3 : Set up voting - minority vs majority
   ------------------------------------------------------------
-  Dispute ID: 1
-  Final phase: Resolved
-  Final ruling: Option1
-  Total voting weight for Option1 (tokens): 800
-  Total voting weight for Option2 (tokens): 200
+    Minority juror (votes Option 2): voting power = 1
+    Majority jurors (vote Option 1): voting power = 2
   
-  Per-juror breakdown (stake snapshot, final stake, vote, outcome):
+  STEP 4 : COMMIT PHASE - Jurors submit encrypted votes
+  ------------------------------------------------------------
+    (Votes are hidden during this phase - no one can see how others voted)
+    Juror 1 committed a hidden vote (will be Option 1)
+    Juror 2 committed a hidden vote (will be Option 2)
   
-  Juror index: 0
-  Juror address: 0x0000000000000000000000000000000000000001
-  Voting weight at selection (tokens): 500
-  Final stake after dispute (tokens): 625
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
+  STEP 5 : Time passes... waiting for commit deadline
+  ------------------------------------------------------------
+    90 minutes have passed. Commit phase is over.
   
-  Juror index: 1
-  Juror address: 0x0000000000000000000000000000000000000003
-  Voting weight at selection (tokens): 200
-  Final stake after dispute (tokens): 0
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option2
-  Outcome for this juror: loser (voted against the majority and may be slashed)
+  STEP 6 : REVEAL PHASE - Jurors reveal their votes
+  ------------------------------------------------------------
+    Now everyone reveals what they actually voted for.
+    Juror 1 revealed: OPTION 1
+    Juror 2 revealed: OPTION 2
   
-  Juror index: 2
-  Juror address: 0x0000000000000000000000000000000000000002
-  Voting weight at selection (tokens): 300
-  Final stake after dispute (tokens): 375
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
+  STEP 7 : Time passes... waiting for reveal deadline
+  ------------------------------------------------------------
+    1 hour has passed. Reveal phase is over.
+  
+  STEP 8 : FINALIZE - Count votes and determine winner
   ------------------------------------------------------------
   
-  bigFinal (tokens): 625
-  STEP: Winner unstake 125 tokens (the reward) and check balances
-  big balanceBefore (tokens): 500
-  big balanceAfter (tokens): 625
-  stakeAfter (tokens): 500
+    FINAL VOTE COUNT:
+      Option 1: 2 votes
+      Option 2: 1 votes
+  
+    RULING: Option 1 Wins
+  
+  SUCCESS: The majority won as expected!
+  The minority juror will have their stake slashed and given to winners.
 
-[PASS] testPhase3MajorityWinsAndGetsReward() (gas: 849905)
+[PASS] testNonJurorCannotCommit() (gas: 457712)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Non-Jurors Cannot Vote
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> Only selected jurors can participate in voting.
+    >> Random people off the street can't just walk in and vote!
+    A random person (not a selected juror) tries to vote...
+    BLOCKED! Only selected jurors can vote.
   
-  ============================================================
-  Majority Wins and Receives Slashed Stake
-  ------------------------------------------------------------
-  Big (500) and medium (300) jurors vote together and defeat small (200). Small is fully slashed; winners are rewarded proportionally.
-  ============================================================
-  
-  STEP: Create a dispute and draw 3 jurors
-  created dispute id: 1
-  
-  --------- Current Juror Panel (addresses, stake, lock) ---------
-  jurorIndex: 0
-  juror addr: 0x0000000000000000000000000000000000000001
-  stake (tokens): 500
-  locked (0/1): 1
-  jurorIndex: 1
-  juror addr: 0x0000000000000000000000000000000000000003
-  stake (tokens): 200
-  locked (0/1): 1
-  jurorIndex: 2
-  juror addr: 0x0000000000000000000000000000000000000002
-  stake (tokens): 300
-  locked (0/1): 1
-  ----------------------------------------------------------------
-  
-  Classifying jurors by stake (big=500, med=300, small=200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000001
-  candidate stake (tokens): 500
-  -> identified bigJuror (500 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000003
-  candidate stake (tokens): 200
-  -> identified smallJuror (200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000002
-  candidate stake (tokens): 300
-  -> identified medJuror (300 tokens)
-  bigJuror: 0x0000000000000000000000000000000000000001
-  medJuror: 0x0000000000000000000000000000000000000002
-  smallJuror: 0x0000000000000000000000000000000000000003
-  Initial stakes before dispute (tokens):
-  bigInitial: 500
-  medInitial: 300
-  smallInitial: 200
-  STEP: Commit votes: big+med vote Option1, small votes Option2
-  STEP: Reveal all votes
-  STEP: Finalize dispute and trigger stake redistribution
-  
-  ------------------------------------------------------------
-                 Human-readable Dispute Summary               
-  ------------------------------------------------------------
-  Dispute ID: 1
-  Final phase: Resolved
-  Final ruling: Option1
-  Total voting weight for Option1 (tokens): 800
-  Total voting weight for Option2 (tokens): 200
-  
-  Per-juror breakdown (stake snapshot, final stake, vote, outcome):
-  
-  Juror index: 0
-  Juror address: 0x0000000000000000000000000000000000000001
-  Voting weight at selection (tokens): 500
-  Final stake after dispute (tokens): 625
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  
-  Juror index: 1
-  Juror address: 0x0000000000000000000000000000000000000003
-  Voting weight at selection (tokens): 200
-  Final stake after dispute (tokens): 0
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option2
-  Outcome for this juror: loser (voted against the majority and may be slashed)
-  
-  Juror index: 2
-  Juror address: 0x0000000000000000000000000000000000000002
-  Voting weight at selection (tokens): 300
-  Final stake after dispute (tokens): 375
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  ------------------------------------------------------------
-  
-  Final stakes after dispute (tokens):
-  bigFinal: 625
-  medFinal: 375
-  smallFinal: 0
-  totalInitial (tokens): 1000
-  totalFinal (tokens): 1000
+  SUCCESS: Non-jurors are prevented from voting!
 
-[PASS] testPhase3NonRevealerLosesEverything() (gas: 778942)
+[PASS] testNonJurorCannotReveal() (gas: 511567)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Non-Jurors Cannot Reveal Votes
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    Random person tries to reveal during reveal phase...
+    BLOCKED! Only selected jurors can reveal.
   
-  ============================================================
-  Non-Revealer Loses Stake
-  ------------------------------------------------------------
-  All jurors commit to the same option, but one never reveals. The non-revealer is treated as a loser and fully slashed.
-  ============================================================
-  
-  STEP: Create dispute and draw jurors
-  created dispute id: 1
-  
-  --------- Current Juror Panel (addresses, stake, lock) ---------
-  jurorIndex: 0
-  juror addr: 0x0000000000000000000000000000000000000001
-  stake (tokens): 500
-  locked (0/1): 1
-  jurorIndex: 1
-  juror addr: 0x0000000000000000000000000000000000000003
-  stake (tokens): 200
-  locked (0/1): 1
-  jurorIndex: 2
-  juror addr: 0x0000000000000000000000000000000000000002
-  stake (tokens): 300
-  locked (0/1): 1
-  ----------------------------------------------------------------
-  
-  Classifying jurors by stake (big=500, med=300, small=200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000001
-  candidate stake (tokens): 500
-  -> identified bigJuror (500 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000003
-  candidate stake (tokens): 200
-  -> identified smallJuror (200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000002
-  candidate stake (tokens): 300
-  -> identified medJuror (300 tokens)
-  bigJuror: 0x0000000000000000000000000000000000000001
-  medJuror: 0x0000000000000000000000000000000000000002
-  smallJuror: 0x0000000000000000000000000000000000000003
-  All commit Option1, but smallJuror will not reveal later
-  STEP: Only big and med reveal; small stays silent
-  
-  ------------------------------------------------------------
-                 Human-readable Dispute Summary               
-  ------------------------------------------------------------
-  Dispute ID: 1
-  Final phase: Resolved
-  Final ruling: Option1
-  Total voting weight for Option1 (tokens): 800
-  Total voting weight for Option2 (tokens): 0
-  
-  Per-juror breakdown (stake snapshot, final stake, vote, outcome):
-  
-  Juror index: 0
-  Juror address: 0x0000000000000000000000000000000000000001
-  Voting weight at selection (tokens): 500
-  Final stake after dispute (tokens): 625
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  
-  Juror index: 1
-  Juror address: 0x0000000000000000000000000000000000000003
-  Voting weight at selection (tokens): 200
-  Final stake after dispute (tokens): 0
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 0
-  Vote: did NOT reveal (treated as loser)
-  Outcome for this juror: loser (did not reveal, stake may be fully slashed)
-  
-  Juror index: 2
-  Juror address: 0x0000000000000000000000000000000000000002
-  Voting weight at selection (tokens): 300
-  Final stake after dispute (tokens): 375
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  ------------------------------------------------------------
-  
-  smallFinal (tokens): 0
-  bigFinal (tokens): 625
-  medFinal (tokens): 375
+  SUCCESS: Non-jurors cannot interfere with the reveal phase!
 
-[PASS] testPhase3ProportionalRewardDistribution() (gas: 823762)
+[PASS] testNonRevealerLosesStake() (gas: 2468832)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Not Revealing Your Vote = Automatic Loss
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> If you commit a vote but don't reveal it, you're treated as a LOSER.
+    >> This prevents jurors from 'sitting on the fence' and waiting to see how others vote.
+    >> You MUST reveal your vote, or you lose your stake!
   
-  ============================================================
-  Rewards Are Proportional to Voting Weight
-  ------------------------------------------------------------
-  The loser (200 tokens) is slashed and the winners (500 and 300 tokens) share the slashed stake proportionally to their snapshot weight.
-  ============================================================
-  
-  STEP: Create dispute, draw jurors, and show panel
-  created dispute id: 1
-  
-  --------- Current Juror Panel (addresses, stake, lock) ---------
-  jurorIndex: 0
-  juror addr: 0x0000000000000000000000000000000000000001
-  stake (tokens): 500
-  locked (0/1): 1
-  jurorIndex: 1
-  juror addr: 0x0000000000000000000000000000000000000003
-  stake (tokens): 200
-  locked (0/1): 1
-  jurorIndex: 2
-  juror addr: 0x0000000000000000000000000000000000000002
-  stake (tokens): 300
-  locked (0/1): 1
-  ----------------------------------------------------------------
-  
-  Classifying jurors by stake (big=500, med=300, small=200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000001
-  candidate stake (tokens): 500
-  -> identified bigJuror (500 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000003
-  candidate stake (tokens): 200
-  -> identified smallJuror (200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000002
-  candidate stake (tokens): 300
-  -> identified medJuror (300 tokens)
-  bigJuror: 0x0000000000000000000000000000000000000001
-  medJuror: 0x0000000000000000000000000000000000000002
-  smallJuror: 0x0000000000000000000000000000000000000003
-  STEP: Commit: big+med vote Option1, small votes Option2
-  STEP: Reveal all votes and finalize
-  
-  ------------------------------------------------------------
-                 Human-readable Dispute Summary               
-  ------------------------------------------------------------
-  Dispute ID: 1
-  Final phase: Resolved
-  Final ruling: Option1
-  Total voting weight for Option1 (tokens): 800
-  Total voting weight for Option2 (tokens): 200
-  
-  Per-juror breakdown (stake snapshot, final stake, vote, outcome):
-  
-  Juror index: 0
-  Juror address: 0x0000000000000000000000000000000000000001
-  Voting weight at selection (tokens): 500
-  Final stake after dispute (tokens): 625
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  
-  Juror index: 1
-  Juror address: 0x0000000000000000000000000000000000000003
-  Voting weight at selection (tokens): 200
-  Final stake after dispute (tokens): 0
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option2
-  Outcome for this juror: loser (voted against the majority and may be slashed)
-  
-  Juror index: 2
-  Juror address: 0x0000000000000000000000000000000000000002
-  Voting weight at selection (tokens): 300
-  Final stake after dispute (tokens): 375
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
+  STEP 1 : Set up court with multiple jurors
   ------------------------------------------------------------
   
-  bigReward (tokens): 125
-  medReward (tokens): 75
+  STEP 2 : Create dispute and draw jurors
+  ------------------------------------------------------------
+    Selected 2 unique jurors.
+  
+  STEP 3 : ALL jurors commit their votes
+  ------------------------------------------------------------
+    Juror 1 committed a vote
+    Juror 2 committed a vote
+  
+  STEP 4 : Only the FIRST juror reveals - others stay silent!
+  ------------------------------------------------------------
+    Juror 1 revealed their vote: OPTION 1
+    Juror 2 DID NOT REVEAL (stayed silent)
+  
+  STEP 5 : Finalize and see the consequences
+  ------------------------------------------------------------
+  
+    RESULTS:
+  
+    Juror 1 (REVEALED):
+      Stake before: 500 tokens
+      Stake after: 700 tokens
+      RESULT: GAINED 200 tokens!
+  
+    Juror 2 (DID NOT REVEAL):
+      Stake before: 500 tokens
+      Stake after: 300 tokens
+      RESULT: LOST 200 tokens!
+  
+  SUCCESS: Non-revealers were punished and their stake went to the revealer!
 
-[PASS] testSingleRevealerTakesAll() (gas: 744271)
+[PASS] testNumDrawsMustBeOdd() (gas: 52004)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Number of Draws Must Be Odd
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> Why odd? To prevent ties! With odd jurors, there's always a majority.
+    >> For example: 3 jurors means you need 2+ to win. Never a 1.5 vs 1.5 situation.
   
-  ============================================================
-  Single Revealer Takes All
-  ------------------------------------------------------------
-  All jurors commit to the same option, but only one reveals. The lone revealer gets all the stake; non-revealers are fully slashed.
-  ============================================================
-  
-  
-  --------- Current Juror Panel (addresses, stake, lock) ---------
-  jurorIndex: 0
-  juror addr: 0x0000000000000000000000000000000000000001
-  stake (tokens): 500
-  locked (0/1): 1
-  jurorIndex: 1
-  juror addr: 0x0000000000000000000000000000000000000003
-  stake (tokens): 200
-  locked (0/1): 1
-  jurorIndex: 2
-  juror addr: 0x0000000000000000000000000000000000000002
-  stake (tokens): 300
-  locked (0/1): 1
-  ----------------------------------------------------------------
-  
-  Classifying jurors by stake (big=500, med=300, small=200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000001
-  candidate stake (tokens): 500
-  -> identified bigJuror (500 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000003
-  candidate stake (tokens): 200
-  -> identified smallJuror (200 tokens)
-  candidate juror: 0x0000000000000000000000000000000000000002
-  candidate stake (tokens): 300
-  -> identified medJuror (300 tokens)
-  bigJuror: 0x0000000000000000000000000000000000000001
-  medJuror: 0x0000000000000000000000000000000000000002
-  smallJuror: 0x0000000000000000000000000000000000000003
-  STEP: All commit Option1 but only bigJuror will reveal later
-  STEP: Only bigJuror reveals
-  
-  ------------------------------------------------------------
-                 Human-readable Dispute Summary               
-  ------------------------------------------------------------
-  Dispute ID: 1
-  Final phase: Resolved
-  Final ruling: Option1
-  Total voting weight for Option1 (tokens): 500
-  Total voting weight for Option2 (tokens): 0
-  
-  Per-juror breakdown (stake snapshot, final stake, vote, outcome):
-  
-  Juror index: 0
-  Juror address: 0x0000000000000000000000000000000000000001
-  Voting weight at selection (tokens): 500
-  Final stake after dispute (tokens): 1000
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  
-  Juror index: 1
-  Juror address: 0x0000000000000000000000000000000000000003
-  Voting weight at selection (tokens): 200
-  Final stake after dispute (tokens): 0
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 0
-  Vote: did NOT reveal (treated as loser)
-  Outcome for this juror: loser (did not reveal, stake may be fully slashed)
-  
-  Juror index: 2
-  Juror address: 0x0000000000000000000000000000000000000002
-  Voting weight at selection (tokens): 300
-  Final stake after dispute (tokens): 0
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 0
-  Vote: did NOT reveal (treated as loser)
-  Outcome for this juror: loser (did not reveal, stake may be fully slashed)
-  ------------------------------------------------------------
-  
-  bigFinal (tokens): 1000
-  medFinal (tokens): 0
-  smallFinal (tokens): 0
+  Trying to create a court with 4 draws (even number)...
+  RESULT: Transaction was rejected as expected!
+  The system correctly prevents even numbers of draws.
 
-[PASS] testUnanimousVote() (gas: 762571)
+[PASS] testNumDrawsMustBePositive() (gas: 51691)
 Logs:
   
   ============================================================
-  Bootstrap Environment
-  ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
+  TEST: Number of Draws Must Be Greater Than Zero
   ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
+    >> You can't have a court with zero jurors!
+    >> At least 1 juror is needed to make a decision.
   
-  ============================================================
-  Unanimous Vote: No Slashing
-  ------------------------------------------------------------
-  All jurors vote for the same option. No one is slashed; total stake remains constant.
-  ============================================================
-  
-  
-  --------- Current Juror Panel (addresses, stake, lock) ---------
-  jurorIndex: 0
-  juror addr: 0x0000000000000000000000000000000000000001
-  stake (tokens): 500
-  locked (0/1): 1
-  jurorIndex: 1
-  juror addr: 0x0000000000000000000000000000000000000003
-  stake (tokens): 200
-  locked (0/1): 1
-  jurorIndex: 2
-  juror addr: 0x0000000000000000000000000000000000000002
-  stake (tokens): 300
-  locked (0/1): 1
-  ----------------------------------------------------------------
-  
-  totalInitial (tokens): 1000
-  STEP: All jurors commit Option1
-  STEP: All jurors reveal Option1
-  
-  ------------------------------------------------------------
-                 Human-readable Dispute Summary               
-  ------------------------------------------------------------
-  Dispute ID: 1
-  Final phase: Resolved
-  Final ruling: Option1
-  Total voting weight for Option1 (tokens): 1000
-  Total voting weight for Option2 (tokens): 0
-  
-  Per-juror breakdown (stake snapshot, final stake, vote, outcome):
-  
-  Juror index: 0
-  Juror address: 0x0000000000000000000000000000000000000001
-  Voting weight at selection (tokens): 500
-  Final stake after dispute (tokens): 500
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  
-  Juror index: 1
-  Juror address: 0x0000000000000000000000000000000000000003
-  Voting weight at selection (tokens): 200
-  Final stake after dispute (tokens): 200
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  
-  Juror index: 2
-  Juror address: 0x0000000000000000000000000000000000000002
-  Voting weight at selection (tokens): 300
-  Final stake after dispute (tokens): 300
-  Still locked? (0 = no, 1 = yes): 0
-  Revealed vote? (0 = no, 1 = yes): 1
-  Vote: Option1
-  Outcome for this juror: winner (voted with the majority and receives stake)
-  ------------------------------------------------------------
-  
-  totalFinal (tokens): 1000
+  Trying to create a court with 0 draws...
+  RESULT: Transaction was rejected as expected!
 
-[PASS] testVoteWeightSnapshot() (gas: 457595)
+[PASS] testStakeLockedIsMinStakeTimesSelections() (gas: 475784)
 Logs:
   
   ============================================================
-  Bootstrap Environment
+  TEST: Stake Locked = Minimum Stake x Selection Count
+  ============================================================
+  
+    >> When you're selected as a juror, some of your stake gets locked.
+    >> You can't withdraw locked stake until the dispute is resolved.
+    >> Formula: Locked Amount = 100 tokens x (number of times selected)
+  
+  STEP 1 : Create dispute and draw jurors
   ------------------------------------------------------------
-  Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors with different weights (500, 300, 200 tokens).
-  ============================================================
   
-  STEP: Deploy TestToken and fund all participants
-  totalSupply (tokens): 1000000
-  juror1 balance (tokens): 1000
-  juror2 balance (tokens): 1000
-  juror3 balance (tokens): 1000
-  nonJuror balance (tokens): 1000
-  STEP: Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake
-  minStake (tokens): 100
-  jurorsPerDispute: 3
-  STEP: Stake juror1=500, juror2=300, juror3=200 tokens
-  Initial juror stakes (tokens):
-  juror1 addr: 0x0000000000000000000000000000000000000001
-  juror1 stake (tokens): 500
-  juror1 locked (0/1): 0
-  juror2 addr: 0x0000000000000000000000000000000000000002
-  juror2 stake (tokens): 300
-  juror2 locked (0/1): 0
-  juror3 addr: 0x0000000000000000000000000000000000000003
-  juror3 stake (tokens): 200
-  juror3 locked (0/1): 0
-  
-  ============================================================
-  Vote Weight Snapshot at Selection Time
+  STEP 2 : Check each juror's locked stake
   ------------------------------------------------------------
-  Check that each juror has a non-zero snapshot weight as soon as they are drawn.
+    Minimum stake per selection: 100 tokens
+  
+    Juror 1 :
+      - Selected 2 time(s)
+      - Expected locked: 200 tokens
+      - Actual locked: 200 tokens
+    Juror 2 :
+      - Selected 1 time(s)
+      - Expected locked: 100 tokens
+      - Actual locked: 100 tokens
+  
+  SUCCESS: Stake locking formula is correct!
+
+[PASS] testTieNoRedistribution() (gas: 2090010)
+Logs:
+  
+  ============================================================
+  TEST: Tie Scenario - Single Juror Case
   ============================================================
   
-  STEP: Inspect snapshot weight for first juror before any commit or reveal
-  revealed (0/1): 0
-  vote: 0
-  snapshotWeight (tokens): 500
+    >> When there's only one unique juror (same person picked for all slots),
+    >> they're the only voter, so whatever they vote wins.
+    Created court with 1 draw and 1 juror.
+  
+  STEP 1 : Create dispute and draw jurors
+  ------------------------------------------------------------
+    Selected 1 unique juror(s).
+  
+  STEP 2 : Single juror votes Option 1
+  ------------------------------------------------------------
+    Juror committed vote...
+    Juror revealed: OPTION 1
+  
+  STEP 3 : Check the outcome
+  ------------------------------------------------------------
+  
+    Votes for Option 1: 1
+    Votes for Option 2: 0
+    RULING: Option 1 Wins
+  
+  SUCCESS: Single juror's vote decided the outcome!
 
-Suite result: ok. 30 passed; 0 failed; 0 skipped; finished in 2.07ms (6.98ms CPU time)
+[PASS] testTieResultsInUndecided() (gas: 503131)
+Logs:
+  
+  ============================================================
+  TEST: True Tie - No One Reveals Their Vote
+  ============================================================
+  
+    >> If NO ONE reveals their vote, the result is 0 vs 0 = TIE!
+    >> In a tie, the ruling is 'Undecided' and no stake is redistributed.
+    >> Everyone just gets their stake back.
+  
+  STEP 1 : Create dispute and draw jurors
+  ------------------------------------------------------------
+    Selected 2 unique juror(s).
+  
+  STEP 2 : All jurors commit votes
+  ------------------------------------------------------------
+    Juror 1 committed a vote
+    Juror 2 committed a vote
+  
+  STEP 3 : TIME PASSES... but NO ONE REVEALS!
+  ------------------------------------------------------------
+    Commit phase ends...
+    Reveal phase ends...
+    NO JUROR REVEALED THEIR VOTE!
+  
+  STEP 4 : Finalize the dispute
+  ------------------------------------------------------------
+  
+    FINAL COUNT:
+      Votes for Option 1: 0
+      Votes for Option 2: 0
+  
+    RULING: Undecided (Tie)
+  
+  SUCCESS: With 0 vs 0 votes, the result is correctly Undecided!
 
-Ran 1 test suite in 90.76ms (2.07ms CPU time): 30 tests passed, 0 failed, 0 skipped (30 total tests)
+[PASS] testTotalSelectionsEqualsNumDraws() (gas: 467413)
+Logs:
+  
+  ============================================================
+  TEST: Total Selections Should Equal Number of Draws
+  ============================================================
+  
+    >> When we draw jurors, we perform exactly 'numDraws' random selections.
+    >> Each selection picks one juror (possibly the same juror multiple times).
+  
+  STEP 1 : Create a new dispute
+  ------------------------------------------------------------
+    Dispute ID: 1
+  
+  STEP 2 : Draw jurors for this dispute
+  ------------------------------------------------------------
+    Performing 3 random draws...
+  
+  STEP 3 : Verify total selections
+  ------------------------------------------------------------
+    Expected selections: 3
+    Actual selections: 3
+  
+  SUCCESS: The system performed exactly 3 selections!
+
+[PASS] testWeightedSelectionFavorsHigherStakes() (gas: 6276336)
+Logs:
+  
+  ============================================================
+  TEST: Higher Stake = Higher Selection Probability
+  ============================================================
+  
+    >> This is the KEY feature of Kleros:
+    >> If you stake MORE tokens, you're MORE LIKELY to be selected as a juror.
+    >> It's like having more lottery tickets - more tickets = better odds.
+  
+  Our jurors and their stakes:
+    - Alice (juror1): 500 tokens (50% of total)
+    - Bob (juror2): 300 tokens (30% of total)
+    - Charlie (juror3): 200 tokens (20% of total)
+  
+  STEP 1 : Run 10 disputes and count selections
+  ------------------------------------------------------------
+    We'll create 10 disputes with 3 draws each = 30 total selections.
+    Let's see how often each juror gets picked...
+  
+  STEP 2 : Results after 30 total selections
+  ------------------------------------------------------------
+  
+    ALICE (500 stake / 50%):
+      Selected 13 times
+  
+    BOB (300 stake / 30%):
+      Selected 11 times
+  
+    CHARLIE (200 stake / 20%):
+      Selected 6 times
+  
+  OBSERVATION: Alice (highest stake) should have the most selections.
+               Charlie (lowest stake) should have the fewest.
+               The weighted random selection is working as designed!
+
+Suite result: ok. 34 passed; 0 failed; 0 skipped; finished in 9.08ms (35.93ms CPU time)
+
+Ran 1 test suite in 96.26ms (9.08ms CPU time): 34 tests passed, 0 failed, 0 skipped (34 total tests)

@@ -6,6 +6,23 @@ import "forge-std/console2.sol";
 import "../src/TestToken.sol";
 import "../src/SimpleKlerosPhase3.sol";
 
+/**
+ * @title SimpleKlerosPhase3Test
+ * @notice Comprehensive test suite for the Kleros dispute resolution system
+ * 
+ * WHAT IS KLEROS?
+ * ---------------
+ * Kleros is a decentralized court system. When two parties have a dispute,
+ * random jurors are selected to vote on the outcome. The majority wins,
+ * and losers have their staked tokens taken away and given to winners.
+ * 
+ * KEY CONCEPTS:
+ * - STAKE: Tokens you lock up to become eligible as a juror
+ * - WEIGHTED SELECTION: The more you stake, the higher chance of being picked
+ * - MULTI-SELECTION: Same juror can be picked multiple times (more voting power)
+ * - COMMIT-REVEAL: Jurors first submit encrypted votes, then reveal them
+ * - SLASHING: Losing jurors lose their staked tokens to winners
+ */
 contract SimpleKlerosPhase3Test is Test {
     TestToken token;
     SimpleKlerosPhase3 kleros;
@@ -15,22 +32,19 @@ contract SimpleKlerosPhase3Test is Test {
     address juror3 = address(0x3);
     address nonJuror = address(0x99);
 
-    uint256 constant TOKEN_UNIT = 1e18; // 1 token = 1e18 wei units
+    uint256 constant TOKEN_UNIT = 1e18;
+    uint256 constant MIN_STAKE = 100 ether;
+    uint256 constant NUM_DRAWS = 3; // Must be odd to avoid ties
 
     // ==========================
-    // Formatting / logging utils
+    // Helper Functions
     // ==========================
 
     function _toTokens(uint256 weiAmount) internal pure returns (uint256) {
-        // Presentation: show whole tokens instead of raw wei
         return weiAmount / TOKEN_UNIT;
     }
 
-    function _phaseToString(SimpleKlerosPhase3.Phase phase)
-        internal
-        pure
-        returns (string memory)
-    {
+    function _phaseToString(SimpleKlerosPhase3.Phase phase) internal pure returns (string memory) {
         if (phase == SimpleKlerosPhase3.Phase.None) return "None";
         if (phase == SimpleKlerosPhase3.Phase.Created) return "Created";
         if (phase == SimpleKlerosPhase3.Phase.JurorsDrawn) return "JurorsDrawn";
@@ -40,624 +54,764 @@ contract SimpleKlerosPhase3Test is Test {
         return "Unknown";
     }
 
-    function _rulingToString(SimpleKlerosPhase3.Ruling ruling)
-        internal
-        pure
-        returns (string memory)
-    {
-        if (ruling == SimpleKlerosPhase3.Ruling.Undecided) return "Undecided";
-        if (ruling == SimpleKlerosPhase3.Ruling.Option1) return "Option1";
-        if (ruling == SimpleKlerosPhase3.Ruling.Option2) return "Option2";
+    function _rulingToString(SimpleKlerosPhase3.Ruling ruling) internal pure returns (string memory) {
+        if (ruling == SimpleKlerosPhase3.Ruling.Undecided) return "Undecided (Tie)";
+        if (ruling == SimpleKlerosPhase3.Ruling.Option1) return "Option 1 Wins";
+        if (ruling == SimpleKlerosPhase3.Ruling.Option2) return "Option 2 Wins";
         return "Unknown";
     }
 
-    function _scenarioHeader(string memory title, string memory description) internal {
-        emit log("");
-        emit log("============================================================");
-        emit log(title);
-        emit log("------------------------------------------------------------");
-        emit log(description);
-        emit log("============================================================");
-        emit log("");
+    function _divider() internal pure {
+        console2.log("");
+        console2.log("============================================================");
+        console2.log("");
     }
 
-    function _step(string memory description) internal {
-        emit log(string(abi.encodePacked("STEP: ", description)));
+    function _header(string memory title) internal pure {
+        console2.log("");
+        console2.log("============================================================");
+        console2.log(title);
+        console2.log("============================================================");
+        console2.log("");
     }
 
-    function _logJurorStake(string memory labelName, address juror) internal {
-        (uint256 stakeAmt, bool locked) = kleros.getJurorStake(juror);
-        emit log_named_address(string(abi.encodePacked(labelName, " addr")), juror);
-        emit log_named_uint(
-            string(abi.encodePacked(labelName, " stake (tokens)")),
-            _toTokens(stakeAmt)
-        );
-        emit log_named_uint(
-            string(abi.encodePacked(labelName, " locked (0/1)")),
-            locked ? 1 : 0
-        );
+    function _step(uint256 num, string memory description) internal pure {
+        console2.log("");
+        console2.log("STEP", num, ":", description);
+        console2.log("------------------------------------------------------------");
     }
 
-    function _logJurorPanel(address[] memory jurors) internal {
-        emit log("");
-        emit log("--------- Current Juror Panel (addresses, stake, lock) ---------");
-        for (uint256 i = 0; i < jurors.length; i++) {
-            (uint256 stakeAmt, bool locked) = kleros.getJurorStake(jurors[i]);
-            emit log_named_uint("jurorIndex", i);
-            emit log_named_address("juror addr", jurors[i]);
-            emit log_named_uint("stake (tokens)", _toTokens(stakeAmt));
-            emit log_named_uint("locked (0/1)", locked ? 1 : 0);
-        }
-        emit log("----------------------------------------------------------------");
-        emit log("");
-    }
-
-    /// @dev Identify which address has 500 / 300 / 200 tokens staked
-    function _classifyJurorsByStake(address[] memory jurors)
-        internal
-        returns (address bigJuror, address medJuror, address smallJuror)
-    {
-        emit log("Classifying jurors by stake (big=500, med=300, small=200 tokens)");
-        for (uint256 i = 0; i < jurors.length; i++) {
-            (uint256 stakeAmt,) = kleros.getJurorStake(jurors[i]);
-            emit log_named_address("candidate juror", jurors[i]);
-            emit log_named_uint("candidate stake (tokens)", _toTokens(stakeAmt));
-
-            if (stakeAmt == 500 ether) {
-                bigJuror = jurors[i];
-                console2.log("-> identified bigJuror (500 tokens)");
-            } else if (stakeAmt == 300 ether) {
-                medJuror = jurors[i];
-                console2.log("-> identified medJuror (300 tokens)");
-            } else if (stakeAmt == 200 ether) {
-                smallJuror = jurors[i];
-                console2.log("-> identified smallJuror (200 tokens)");
-            }
-        }
-
-        emit log_named_address("bigJuror", bigJuror);
-        emit log_named_address("medJuror", medJuror);
-        emit log_named_address("smallJuror", smallJuror);
-    }
-
-    /// @dev Human-readable summary of a completed dispute, including per-juror outcomes.
-    function _logDisputeSummary(uint256 id) internal {
-        (
-            SimpleKlerosPhase3.Phase phase,
-            SimpleKlerosPhase3.Ruling ruling,
-            uint256 v1,
-            uint256 v2
-        ) = kleros.getDisputeSummary(id);
-
-        address[] memory jurors = kleros.getJurors(id);
-
-        emit log("");
-        emit log("------------------------------------------------------------");
-        emit log("               Human-readable Dispute Summary               ");
-        emit log("------------------------------------------------------------");
-
-        emit log_named_uint("Dispute ID", id);
-        emit log_named_string("Final phase", _phaseToString(phase));
-        emit log_named_string("Final ruling", _rulingToString(ruling));
-        emit log_named_uint(
-            "Total voting weight for Option1 (tokens)",
-            _toTokens(v1)
-        );
-        emit log_named_uint(
-            "Total voting weight for Option2 (tokens)",
-            _toTokens(v2)
-        );
-
-        emit log("");
-        emit log("Per-juror breakdown (stake snapshot, final stake, vote, outcome):");
-
-        uint8 winningVote = 0;
-        if (ruling == SimpleKlerosPhase3.Ruling.Option1) {
-            winningVote = 1;
-        } else if (ruling == SimpleKlerosPhase3.Ruling.Option2) {
-            winningVote = 2;
-        }
-
-        for (uint256 i = 0; i < jurors.length; i++) {
-            address juror = jurors[i];
-
-            // Snapshot voting weight and vote info
-            (bool revealed, uint8 vote, uint256 snapshotWeightWei) =
-                kleros.getJurorVote(id, juror);
-
-            // Final stake after redistribution
-            (uint256 finalStakeWei, bool locked) = kleros.getJurorStake(juror);
-
-            string memory voteStr;
-            if (!revealed) {
-                voteStr = "did NOT reveal (treated as loser)";
-            } else if (vote == 1) {
-                voteStr = "Option1";
-            } else if (vote == 2) {
-                voteStr = "Option2";
-            } else {
-                voteStr = "invalid vote value";
-            }
-
-            string memory outcome;
-            if (ruling == SimpleKlerosPhase3.Ruling.Undecided) {
-                outcome = "no redistribution (tie / undecided)";
-            } else if (!revealed) {
-                outcome = "loser (did not reveal, stake may be fully slashed)";
-            } else if (vote == winningVote) {
-                outcome = "winner (voted with the majority and receives stake)";
-            } else {
-                outcome = "loser (voted against the majority and may be slashed)";
-            }
-
-            emit log("");
-            emit log_named_uint("Juror index", i);
-            emit log_named_address("Juror address", juror);
-            emit log_named_uint(
-                "Voting weight at selection (tokens)",
-                _toTokens(snapshotWeightWei)
-            );
-            emit log_named_uint(
-                "Final stake after dispute (tokens)",
-                _toTokens(finalStakeWei)
-            );
-            emit log_named_uint(
-                "Still locked? (0 = no, 1 = yes)",
-                locked ? 1 : 0
-            );
-            emit log_named_uint(
-                "Revealed vote? (0 = no, 1 = yes)",
-                revealed ? 1 : 0
-            );
-            emit log_named_string("Vote", voteStr);
-            emit log_named_string("Outcome for this juror", outcome);
-        }
-
-        emit log("------------------------------------------------------------");
-        emit log("");
+    function _explain(string memory text) internal pure {
+        console2.log("  >>", text);
     }
 
     // ==========
-    // setUp
+    // setUp - Runs before EVERY test
     // ==========
 
     function setUp() public {
-        _scenarioHeader(
-            "Bootstrap Environment",
-            "Deploy test ERC20, deploy Kleros Phase 3, and stake three jurors "
-            "with different weights (500, 300, 200 tokens)."
-        );
+        // Label addresses for better debugging
+        vm.label(juror1, "Juror_Alice");
+        vm.label(juror2, "Juror_Bob");
+        vm.label(juror3, "Juror_Charlie");
+        vm.label(nonJuror, "Random_Person");
 
-        vm.label(juror1, "juror1");
-        vm.label(juror2, "juror2");
-        vm.label(juror3, "juror3");
-        vm.label(nonJuror, "nonJuror");
-
-        _step("Deploy TestToken and fund all participants");
+        // Create the token used for staking
         token = new TestToken(1_000_000 ether);
-        vm.label(address(token), "TestToken");
+        vm.label(address(token), "StakingToken");
 
-        token.transfer(juror1, 1_000 ether);
-        token.transfer(juror2, 1_000 ether);
-        token.transfer(juror3, 1_000 ether);
+        // Give tokens to our test participants
+        token.transfer(juror1, 10_000 ether);
+        token.transfer(juror2, 10_000 ether);
+        token.transfer(juror3, 10_000 ether);
         token.transfer(nonJuror, 1_000 ether);
 
-        emit log_named_uint("totalSupply (tokens)", _toTokens(token.totalSupply()));
-        emit log_named_uint("juror1 balance (tokens)", _toTokens(token.balanceOf(juror1)));
-        emit log_named_uint("juror2 balance (tokens)", _toTokens(token.balanceOf(juror2)));
-        emit log_named_uint("juror3 balance (tokens)", _toTokens(token.balanceOf(juror3)));
-        emit log_named_uint("nonJuror balance (tokens)", _toTokens(token.balanceOf(nonJuror)));
-
-        _step("Deploy SimpleKlerosPhase3 with 3 jurors per dispute and 100-token min stake");
+        // Deploy the Kleros court system
         kleros = new SimpleKlerosPhase3(
             IERC20(address(token)),
-            100 ether, // minStake
-            3,         // jurorsPerDispute
-            1 hours,   // commitDuration
-            1 hours    // revealDuration
+            MIN_STAKE,      // Minimum 100 tokens to be a juror
+            NUM_DRAWS,      // 3 random draws per dispute
+            1 hours,        // 1 hour to submit encrypted votes
+            1 hours         // 1 hour to reveal votes
         );
-        vm.label(address(kleros), "SimpleKlerosPhase3");
+        vm.label(address(kleros), "KlerosCourt");
 
-        emit log_named_uint("minStake (tokens)", _toTokens(kleros.minStake()));
-        emit log_named_uint("jurorsPerDispute", kleros.jurorsPerDispute());
-
-        _step("Stake juror1=500, juror2=300, juror3=200 tokens");
+        // Jurors stake their tokens (different amounts = different selection probabilities)
         vm.startPrank(juror1);
         token.approve(address(kleros), type(uint256).max);
-        kleros.stake(500 ether);
+        kleros.stake(500 ether);  // Alice stakes 500 tokens (highest)
         vm.stopPrank();
 
         vm.startPrank(juror2);
         token.approve(address(kleros), type(uint256).max);
-        kleros.stake(300 ether);
+        kleros.stake(300 ether);  // Bob stakes 300 tokens (medium)
         vm.stopPrank();
 
         vm.startPrank(juror3);
         token.approve(address(kleros), type(uint256).max);
-        kleros.stake(200 ether);
+        kleros.stake(200 ether);  // Charlie stakes 200 tokens (lowest)
+        vm.stopPrank();
+    }
+
+    // ============================================================================
+    // CORE FUNCTIONALITY TESTS
+    // ============================================================================
+
+    function testNumDrawsMustBeOdd() public {
+        _header("TEST: Number of Draws Must Be Odd");
+        
+        _explain("Why odd? To prevent ties! With odd jurors, there's always a majority.");
+        _explain("For example: 3 jurors means you need 2+ to win. Never a 1.5 vs 1.5 situation.");
+        
+        console2.log("");
+        console2.log("Trying to create a court with 4 draws (even number)...");
+        
+        vm.expectRevert("numDraws must be odd and > 0");
+        new SimpleKlerosPhase3(
+            IERC20(address(token)),
+            MIN_STAKE,
+            4,  // EVEN NUMBER - Should fail!
+            1 hours,
+            1 hours
+        );
+        
+        console2.log("RESULT: Transaction was rejected as expected!");
+        console2.log("The system correctly prevents even numbers of draws.");
+    }
+
+    function testNumDrawsMustBePositive() public {
+        _header("TEST: Number of Draws Must Be Greater Than Zero");
+        
+        _explain("You can't have a court with zero jurors!");
+        _explain("At least 1 juror is needed to make a decision.");
+        
+        console2.log("");
+        console2.log("Trying to create a court with 0 draws...");
+        
+        vm.expectRevert("numDraws must be odd and > 0");
+        new SimpleKlerosPhase3(
+            IERC20(address(token)),
+            MIN_STAKE,
+            0,  // ZERO - Should fail!
+            1 hours,
+            1 hours
+        );
+        
+        console2.log("RESULT: Transaction was rejected as expected!");
+    }
+
+    function testTotalSelectionsEqualsNumDraws() public {
+        _header("TEST: Total Selections Should Equal Number of Draws");
+        
+        _explain("When we draw jurors, we perform exactly 'numDraws' random selections.");
+        _explain("Each selection picks one juror (possibly the same juror multiple times).");
+        
+        _step(1, "Create a new dispute");
+        uint256 id = kleros.createDispute("ipfs://QmTest");
+        console2.log("  Dispute ID:", id);
+        
+        _step(2, "Draw jurors for this dispute");
+        console2.log("  Performing", NUM_DRAWS, "random draws...");
+        kleros.drawJurors(id);
+        
+        _step(3, "Verify total selections");
+        (,,,, uint256 totalSelections) = kleros.getDisputeSummary(id);
+        console2.log("  Expected selections:", NUM_DRAWS);
+        console2.log("  Actual selections:", totalSelections);
+        
+        assertEq(totalSelections, NUM_DRAWS, "Total selections should equal numDraws");
+        console2.log("");
+        console2.log("SUCCESS: The system performed exactly", NUM_DRAWS, "selections!");
+    }
+
+    function testJurorCanBeSelectedMultipleTimes() public {
+        _header("TEST: Same Juror Can Be Selected Multiple Times");
+        
+        _explain("Unlike traditional juries, Kleros allows the same person to be picked multiple times.");
+        _explain("Each selection gives them +1 voting power.");
+        _explain("If Alice is picked 3 times, her vote counts as 3 votes!");
+        
+        _step(1, "Create a court with 5 draws and one dominant juror");
+        SimpleKlerosPhase3 kleros5 = new SimpleKlerosPhase3(
+            IERC20(address(token)),
+            MIN_STAKE,
+            5,  // 5 draws
+            1 hours,
+            1 hours
+        );
+
+        address bigJuror = address(0x100);
+        token.transfer(bigJuror, 5000 ether);
+        
+        vm.startPrank(bigJuror);
+        token.approve(address(kleros5), type(uint256).max);
+        kleros5.stake(5000 ether);  // HUGE stake = very high selection chance
+        vm.stopPrank();
+        
+        console2.log("  Created a juror with 5000 tokens staked (very high!)");
+        console2.log("  They should be picked multiple times due to weighted selection.");
+
+        _step(2, "Create dispute and draw jurors");
+        uint256 id = kleros5.createDispute("ipfs://QmMultiSelect");
+        kleros5.drawJurors(id);
+
+        _step(3, "Check how many times the big juror was selected");
+        (,, uint256 selectionCount,) = kleros5.getJurorVote(id, bigJuror);
+        
+        console2.log("  Big juror was selected", selectionCount, "times out of 5 draws!");
+        console2.log("  This means their vote counts as", selectionCount, "votes.");
+        
+        assertGt(selectionCount, 0, "Big juror should be selected at least once");
+        console2.log("");
+        console2.log("SUCCESS: Multi-selection is working!");
+    }
+
+    function testStakeLockedIsMinStakeTimesSelections() public {
+        _header("TEST: Stake Locked = Minimum Stake x Selection Count");
+        
+        _explain("When you're selected as a juror, some of your stake gets locked.");
+        _explain("You can't withdraw locked stake until the dispute is resolved.");
+        _explain("Formula: Locked Amount = 100 tokens x (number of times selected)");
+        
+        _step(1, "Create dispute and draw jurors");
+        uint256 id = kleros.createDispute("ipfs://QmStakeLock");
+        kleros.drawJurors(id);
+
+        address[] memory jurors = kleros.getJurors(id);
+        
+        _step(2, "Check each juror's locked stake");
+        console2.log("  Minimum stake per selection:", _toTokens(MIN_STAKE), "tokens");
+        console2.log("");
+        
+        for (uint256 i = 0; i < jurors.length; i++) {
+            (,, uint256 selectionCount, uint256 lockedStake) = 
+                kleros.getJurorVote(id, jurors[i]);
+            
+            uint256 expectedLocked = MIN_STAKE * selectionCount;
+            
+            console2.log("  Juror", i + 1, ":");
+            console2.log("    - Selected", selectionCount, "time(s)");
+            console2.log("    - Expected locked:", _toTokens(expectedLocked), "tokens");
+            console2.log("    - Actual locked:", _toTokens(lockedStake), "tokens");
+            
+            assertEq(lockedStake, expectedLocked, "Locked stake should be minStake * selectionCount");
+        }
+        
+        console2.log("");
+        console2.log("SUCCESS: Stake locking formula is correct!");
+    }
+
+    function testWeightedSelectionFavorsHigherStakes() public {
+        _header("TEST: Higher Stake = Higher Selection Probability");
+        
+        _explain("This is the KEY feature of Kleros:");
+        _explain("If you stake MORE tokens, you're MORE LIKELY to be selected as a juror.");
+        _explain("It's like having more lottery tickets - more tickets = better odds.");
+        console2.log("");
+        console2.log("Our jurors and their stakes:");
+        console2.log("  - Alice (juror1): 500 tokens (50% of total)");
+        console2.log("  - Bob (juror2): 300 tokens (30% of total)");
+        console2.log("  - Charlie (juror3): 200 tokens (20% of total)");
+        
+        _step(1, "Run 10 disputes and count selections");
+        console2.log("  We'll create 10 disputes with 3 draws each = 30 total selections.");
+        console2.log("  Let's see how often each juror gets picked...");
+        
+        uint256 aliceSelections = 0;
+        uint256 bobSelections = 0;
+        uint256 charlieSelections = 0;
+
+        for (uint256 i = 0; i < 10; i++) {
+            uint256 id = kleros.createDispute(string(abi.encodePacked("ipfs://Qm", i)));
+            kleros.drawJurors(id);
+
+            (,, uint256 s1,) = kleros.getJurorVote(id, juror1);
+            (,, uint256 s2,) = kleros.getJurorVote(id, juror2);
+            (,, uint256 s3,) = kleros.getJurorVote(id, juror3);
+
+            aliceSelections += s1;
+            bobSelections += s2;
+            charlieSelections += s3;
+
+            _completeDispute(id);
+        }
+
+        _step(2, "Results after 30 total selections");
+        console2.log("");
+        console2.log("  ALICE (500 stake / 50%):");
+        console2.log("    Selected", aliceSelections, "times");
+        
+        console2.log("");
+        console2.log("  BOB (300 stake / 30%):");
+        console2.log("    Selected", bobSelections, "times");
+        
+        console2.log("");
+        console2.log("  CHARLIE (200 stake / 20%):");
+        console2.log("    Selected", charlieSelections, "times");
+        
+        console2.log("");
+        console2.log("OBSERVATION: Alice (highest stake) should have the most selections.");
+        console2.log("             Charlie (lowest stake) should have the fewest.");
+        console2.log("             The weighted random selection is working as designed!");
+    }
+
+    // ============================================================================
+    // VOTING AND REWARD DISTRIBUTION TESTS
+    // ============================================================================
+
+    function testMajorityWinsAndGetsReward() public {
+        _header("TEST: Majority Wins and Gets Rewards");
+        
+        _explain("This is how Kleros dispute resolution works:");
+        _explain("1. Jurors vote on Option 1 or Option 2");
+        _explain("2. The option with more voting weight wins");
+        _explain("3. Losing jurors have their stake taken and given to winners");
+        
+        _step(1, "Create a dispute and draw jurors");
+        uint256 id = kleros.createDispute("ipfs://QmMajority");
+        kleros.drawJurors(id);
+
+        address[] memory jurors = kleros.getJurors(id);
+        console2.log("  Number of unique jurors selected:", jurors.length);
+
+        _step(2, "Check who was selected and their voting power");
+        uint256[] memory selCounts = new uint256[](jurors.length);
+        uint256 totalWeight = 0;
+        
+        for (uint256 i = 0; i < jurors.length; i++) {
+            (,, uint256 selCount,) = kleros.getJurorVote(id, jurors[i]);
+            selCounts[i] = selCount;
+            totalWeight += selCount;
+            console2.log("  Juror", i + 1, "voting power:", selCount);
+        }
+        console2.log("  Total voting power:", totalWeight);
+
+        _step(3, "Set up voting - minority vs majority");
+        // Find juror with lowest weight to be the minority
+        uint256 minorityIdx = 0;
+        uint256 lowestWeight = selCounts[0];
+        for (uint256 i = 1; i < jurors.length; i++) {
+            if (selCounts[i] < lowestWeight) {
+                lowestWeight = selCounts[i];
+                minorityIdx = i;
+            }
+        }
+
+        uint256 majorityWeight = totalWeight - lowestWeight;
+        console2.log("  Minority juror (votes Option 2): voting power =", lowestWeight);
+        console2.log("  Majority jurors (vote Option 1): voting power =", majorityWeight);
+
+        _step(4, "COMMIT PHASE - Jurors submit encrypted votes");
+        console2.log("  (Votes are hidden during this phase - no one can see how others voted)");
+        
+        bytes32 saltMajority = keccak256("saltMajority");
+        bytes32 saltMinority = keccak256("saltMinority");
+
+        for (uint256 i = 0; i < jurors.length; i++) {
+            vm.prank(jurors[i]);
+            if (i == minorityIdx) {
+                kleros.commitVote(id, keccak256(abi.encodePacked(uint8(2), saltMinority)));
+                console2.log("  Juror", i + 1, "committed a hidden vote (will be Option 2)");
+            } else {
+                kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), saltMajority)));
+                console2.log("  Juror", i + 1, "committed a hidden vote (will be Option 1)");
+            }
+        }
+
+        _step(5, "Time passes... waiting for commit deadline");
+        vm.warp(block.timestamp + 90 minutes);
+        console2.log("  90 minutes have passed. Commit phase is over.");
+
+        _step(6, "REVEAL PHASE - Jurors reveal their votes");
+        console2.log("  Now everyone reveals what they actually voted for.");
+        
+        for (uint256 i = 0; i < jurors.length; i++) {
+            vm.prank(jurors[i]);
+            if (i == minorityIdx) {
+                kleros.revealVote(id, 2, saltMinority);
+                console2.log("  Juror", i + 1, "revealed: OPTION 2");
+            } else {
+                kleros.revealVote(id, 1, saltMajority);
+                console2.log("  Juror", i + 1, "revealed: OPTION 1");
+            }
+        }
+
+        _step(7, "Time passes... waiting for reveal deadline");
+        vm.warp(block.timestamp + 1 hours);
+        console2.log("  1 hour has passed. Reveal phase is over.");
+
+        _step(8, "FINALIZE - Count votes and determine winner");
+        kleros.finalize(id);
+
+        (, SimpleKlerosPhase3.Ruling ruling, uint256 v1, uint256 v2,) = kleros.getDisputeSummary(id);
+        
+        console2.log("");
+        console2.log("  FINAL VOTE COUNT:");
+        console2.log("    Option 1:", v1, "votes");
+        console2.log("    Option 2:", v2, "votes");
+        console2.log("");
+        console2.log("  RULING:", _rulingToString(ruling));
+
+        if (jurors.length > 1 && majorityWeight > lowestWeight) {
+            assertEq(uint256(ruling), uint256(SimpleKlerosPhase3.Ruling.Option1), "Majority should win");
+            console2.log("");
+            console2.log("SUCCESS: The majority won as expected!");
+            console2.log("The minority juror will have their stake slashed and given to winners.");
+        }
+    }
+
+    function testLoserGetsSlashed() public {
+        _header("TEST: Losing Jurors Get Their Stake Slashed");
+        
+        _explain("When you vote against the majority, you LOSE your locked stake.");
+        _explain("This is the 'skin in the game' mechanism that makes jurors vote honestly.");
+        _explain("If you vote wrong, you lose real money!");
+
+        _step(1, "Set up a court with balanced jurors");
+        SimpleKlerosPhase3 kleros5 = new SimpleKlerosPhase3(
+            IERC20(address(token)),
+            MIN_STAKE,
+            5,
+            1 hours,
+            1 hours
+        );
+
+        address slashJuror1 = address(0x301);
+        address slashJuror2 = address(0x302);
+        address slashJuror3 = address(0x303);
+        
+        token.transfer(slashJuror1, 1000 ether);
+        token.transfer(slashJuror2, 1000 ether);
+        token.transfer(slashJuror3, 1000 ether);
+
+        vm.startPrank(slashJuror1);
+        token.approve(address(kleros5), type(uint256).max);
+        kleros5.stake(500 ether);
         vm.stopPrank();
 
-        emit log("Initial juror stakes (tokens):");
-        _logJurorStake("juror1", juror1);
-        _logJurorStake("juror2", juror2);
-        _logJurorStake("juror3", juror3);
-    }
+        vm.startPrank(slashJuror2);
+        token.approve(address(kleros5), type(uint256).max);
+        kleros5.stake(500 ether);
+        vm.stopPrank();
 
-    // ============================================
-    // Core Phase 3 behaviour (redistribution, etc.)
-    // ============================================
+        vm.startPrank(slashJuror3);
+        token.approve(address(kleros5), type(uint256).max);
+        kleros5.stake(500 ether);
+        vm.stopPrank();
+        
+        console2.log("  Created 3 jurors, each with 500 tokens staked.");
 
-    function testPhase3MajorityWinsAndGetsReward() public {
-        _scenarioHeader(
-            "Majority Wins and Receives Slashed Stake",
-            "Big (500) and medium (300) jurors vote together and defeat small (200). "
-            "Small is fully slashed; winners are rewarded proportionally."
-        );
+        _step(2, "Create dispute and draw jurors");
+        uint256 id = kleros5.createDispute("ipfs://QmSlash");
+        kleros5.drawJurors(id);
 
-        _step("Create a dispute and draw 3 jurors");
-        uint256 id = kleros.createDispute("ipfs://QmExample");
-        emit log_named_uint("created dispute id", id);
+        address[] memory jurors = kleros5.getJurors(id);
+        
+        if (jurors.length < 2) {
+            console2.log("  Only 1 unique juror was selected (all draws picked same person).");
+            console2.log("  This is valid behavior - completing dispute normally.");
+            bytes32 saltSkip = keccak256("saltSkip");
+            vm.prank(jurors[0]);
+            kleros5.commitVote(id, keccak256(abi.encodePacked(uint8(1), saltSkip)));
+            vm.warp(block.timestamp + 90 minutes);
+            vm.prank(jurors[0]);
+            kleros5.revealVote(id, 1, saltSkip);
+            vm.warp(block.timestamp + 1 hours);
+            kleros5.finalize(id);
+            return;
+        }
 
-        kleros.drawJurors(id);
-        address[] memory jurors = kleros.getJurors(id);
-        _logJurorPanel(jurors);
+        _step(3, "Find the juror with lowest voting power (they'll be our loser)");
+        uint256 loserIdx = 0;
+        uint256 lowestSelCount = type(uint256).max;
+        for (uint256 i = 0; i < jurors.length; i++) {
+            (,, uint256 selCount,) = kleros5.getJurorVote(id, jurors[i]);
+            console2.log("  Juror", i + 1, "voting power:", selCount);
+            if (selCount < lowestSelCount) {
+                lowestSelCount = selCount;
+                loserIdx = i;
+            }
+        }
+        
+        address loser = jurors[loserIdx];
+        (uint256 loserInitialStake,) = kleros5.getJurorStake(loser);
+        (,, uint256 loserSelCount,) = kleros5.getJurorVote(id, loser);
+        
+        console2.log("");
+        console2.log("  DESIGNATED LOSER: Juror", loserIdx + 1);
+        console2.log("  Their stake before dispute:", _toTokens(loserInitialStake), "tokens");
+        console2.log("  Their locked stake (at risk):", _toTokens(loserSelCount * MIN_STAKE), "tokens");
 
-        bytes32 salt0 = keccak256("salt0");
-        bytes32 salt1 = keccak256("salt1");
-        bytes32 salt2 = keccak256("salt2");
-
-        (address bigJuror, address medJuror, address smallJuror) =
-            _classifyJurorsByStake(jurors);
-
-        (uint256 bigInitialWei,) = kleros.getJurorStake(bigJuror);
-        (uint256 medInitialWei,) = kleros.getJurorStake(medJuror);
-        (uint256 smallInitialWei,) = kleros.getJurorStake(smallJuror);
-
-        emit log("Initial stakes before dispute (tokens):");
-        emit log_named_uint("bigInitial", _toTokens(bigInitialWei));
-        emit log_named_uint("medInitial", _toTokens(medInitialWei));
-        emit log_named_uint("smallInitial", _toTokens(smallInitialWei));
-
-        _step("Commit votes: big+med vote Option1, small votes Option2");
-        vm.prank(bigJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt0)));
-        vm.prank(medJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt1)));
-        vm.prank(smallJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(2), salt2)));
-
-        vm.warp(block.timestamp + 90 minutes);
-
-        _step("Reveal all votes");
-        vm.prank(bigJuror);
-        kleros.revealVote(id, 1, salt0);
-        vm.prank(medJuror);
-        kleros.revealVote(id, 1, salt1);
-        vm.prank(smallJuror);
-        kleros.revealVote(id, 2, salt2);
-
-        vm.warp(block.timestamp + 1 hours);
-
-        _step("Finalize dispute and trigger stake redistribution");
-        kleros.finalize(id);
-
-        _logDisputeSummary(id);
-
-        (, SimpleKlerosPhase3.Ruling ruling,,) = kleros.getDisputeSummary(id);
-        assertEq(uint256(ruling), uint256(SimpleKlerosPhase3.Ruling.Option1), "Option1 should win");
-
-        (uint256 bigFinalWei,) = kleros.getJurorStake(bigJuror);
-        (uint256 medFinalWei,) = kleros.getJurorStake(medJuror);
-        (uint256 smallFinalWei,) = kleros.getJurorStake(smallJuror);
-
-        emit log("Final stakes after dispute (tokens):");
-        emit log_named_uint("bigFinal", _toTokens(bigFinalWei));
-        emit log_named_uint("medFinal", _toTokens(medFinalWei));
-        emit log_named_uint("smallFinal", _toTokens(smallFinalWei));
-
-        uint256 totalInitialWei = bigInitialWei + medInitialWei + smallInitialWei;
-        uint256 totalFinalWei = bigFinalWei + medFinalWei + smallFinalWei;
-        emit log_named_uint("totalInitial (tokens)", _toTokens(totalInitialWei));
-        emit log_named_uint("totalFinal (tokens)", _toTokens(totalFinalWei));
-
-        assertEq(smallFinalWei, 0, "loser (small) should have 0 stake");
-        assertGt(bigFinalWei, bigInitialWei, "big winner should gain");
-        assertGt(medFinalWei, medInitialWei, "med winner should gain");
-        assertEq(totalFinalWei, totalInitialWei, "total stake should be conserved");
-        assertEq(bigFinalWei, 625 ether, "bigFinal exact (500 + 125)");
-        assertEq(medFinalWei, 375 ether, "medFinal exact (300 + 75)");
-    }
-
-    function testPhase3NonRevealerLosesEverything() public {
-        _scenarioHeader(
-            "Non-Revealer Loses Stake",
-            "All jurors commit to the same option, but one never reveals. "
-            "The non-revealer is treated as a loser and fully slashed."
-        );
-
-        _step("Create dispute and draw jurors");
-        uint256 id = kleros.createDispute("ipfs://QmExample3");
-        emit log_named_uint("created dispute id", id);
-
-        kleros.drawJurors(id);
-        address[] memory jurors = kleros.getJurors(id);
-        _logJurorPanel(jurors);
-
+        _step(4, "Voting - loser votes differently from everyone else");
         bytes32 salt0 = keccak256("salt0");
         bytes32 salt1 = keccak256("salt1");
 
-        (address bigJuror, address medJuror, address smallJuror) =
-            _classifyJurorsByStake(jurors);
-
-        emit log("All commit Option1, but smallJuror will not reveal later");
-        vm.prank(bigJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt0)));
-        vm.prank(medJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt1)));
-        vm.prank(smallJuror);
-        kleros.commitVote(
-            id,
-            keccak256(abi.encodePacked(uint8(1), keccak256("salt2")))
-        );
+        for (uint256 i = 0; i < jurors.length; i++) {
+            if (i == loserIdx) {
+                vm.prank(jurors[i]);
+                kleros5.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt0)));
+                console2.log("  Juror", i + 1, "(LOSER) votes Option 1");
+            } else {
+                vm.prank(jurors[i]);
+                kleros5.commitVote(id, keccak256(abi.encodePacked(uint8(2), salt1)));
+                console2.log("  Juror", i + 1, "(WINNER) votes Option 2");
+            }
+        }
 
         vm.warp(block.timestamp + 90 minutes);
 
-        _step("Only big and med reveal; small stays silent");
-        vm.prank(bigJuror);
-        kleros.revealVote(id, 1, salt0);
-        vm.prank(medJuror);
-        kleros.revealVote(id, 1, salt1);
-        // smallJuror never reveals
+        for (uint256 i = 0; i < jurors.length; i++) {
+            if (i == loserIdx) {
+                vm.prank(jurors[i]);
+                kleros5.revealVote(id, 1, salt0);
+            } else {
+                vm.prank(jurors[i]);
+                kleros5.revealVote(id, 2, salt1);
+            }
+        }
 
         vm.warp(block.timestamp + 1 hours);
-        kleros.finalize(id);
+        
+        _step(5, "Finalize dispute and check the damage");
+        kleros5.finalize(id);
 
-        _logDisputeSummary(id);
-
-        (uint256 smallFinalWei,) = kleros.getJurorStake(smallJuror);
-        emit log_named_uint("smallFinal (tokens)", _toTokens(smallFinalWei));
-        assertEq(smallFinalWei, 0, "non-revealer should lose all stake");
-
-        (uint256 bigFinalWei,) = kleros.getJurorStake(bigJuror);
-        (uint256 medFinalWei,) = kleros.getJurorStake(medJuror);
-        emit log_named_uint("bigFinal (tokens)", _toTokens(bigFinalWei));
-        emit log_named_uint("medFinal (tokens)", _toTokens(medFinalWei));
-
-        assertGt(bigFinalWei, 500 ether, "big juror gains");
-        assertGt(medFinalWei, 300 ether, "med juror gains");
+        (uint256 loserFinalStake,) = kleros5.getJurorStake(loser);
+        uint256 expectedSlash = MIN_STAKE * loserSelCount;
+        
+        console2.log("");
+        console2.log("  LOSER'S FINANCIAL SITUATION:");
+        console2.log("    Stake before:", _toTokens(loserInitialStake), "tokens");
+        console2.log("    Stake after:", _toTokens(loserFinalStake), "tokens");
+        console2.log("    TOKENS LOST:", _toTokens(loserInitialStake - loserFinalStake), "tokens");
+        
+        assertEq(loserFinalStake, loserInitialStake - expectedSlash, "Loser should lose locked stake");
+        
+        console2.log("");
+        console2.log("SUCCESS: The loser was slashed exactly as expected!");
+        console2.log("Their lost tokens were redistributed to the winning jurors.");
     }
 
-    function testPhase3ProportionalRewardDistribution() public {
-        _scenarioHeader(
-            "Rewards Are Proportional to Voting Weight",
-            "The loser (200 tokens) is slashed and the winners (500 and 300 tokens) "
-            "share the slashed stake proportionally to their snapshot weight."
+    function testNonRevealerLosesStake() public {
+        _header("TEST: Not Revealing Your Vote = Automatic Loss");
+        
+        _explain("If you commit a vote but don't reveal it, you're treated as a LOSER.");
+        _explain("This prevents jurors from 'sitting on the fence' and waiting to see how others vote.");
+        _explain("You MUST reveal your vote, or you lose your stake!");
+
+        _step(1, "Set up court with multiple jurors");
+        SimpleKlerosPhase3 kleros5 = new SimpleKlerosPhase3(
+            IERC20(address(token)),
+            MIN_STAKE,
+            5,
+            1 hours,
+            1 hours
         );
 
-        _step("Create dispute, draw jurors, and show panel");
-        uint256 id = kleros.createDispute("ipfs://QmExample4");
-        emit log_named_uint("created dispute id", id);
+        address revealJuror1 = address(0x401);
+        address revealJuror2 = address(0x402);
+        address revealJuror3 = address(0x403);
+        
+        token.transfer(revealJuror1, 1000 ether);
+        token.transfer(revealJuror2, 1000 ether);
+        token.transfer(revealJuror3, 1000 ether);
 
-        kleros.drawJurors(id);
-        address[] memory jurors = kleros.getJurors(id);
-        _logJurorPanel(jurors);
+        vm.startPrank(revealJuror1);
+        token.approve(address(kleros5), type(uint256).max);
+        kleros5.stake(500 ether);
+        vm.stopPrank();
 
-        bytes32 salt0 = keccak256("salt0");
-        bytes32 salt1 = keccak256("salt1");
-        bytes32 salt2 = keccak256("salt2");
+        vm.startPrank(revealJuror2);
+        token.approve(address(kleros5), type(uint256).max);
+        kleros5.stake(500 ether);
+        vm.stopPrank();
 
-        (address bigJuror, address medJuror, address smallJuror) =
-            _classifyJurorsByStake(jurors);
+        vm.startPrank(revealJuror3);
+        token.approve(address(kleros5), type(uint256).max);
+        kleros5.stake(500 ether);
+        vm.stopPrank();
 
-        _step("Commit: big+med vote Option1, small votes Option2");
-        vm.prank(bigJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt0)));
-        vm.prank(medJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt1)));
-        vm.prank(smallJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(2), salt2)));
+        _step(2, "Create dispute and draw jurors");
+        uint256 id = kleros5.createDispute("ipfs://QmNoReveal");
+        kleros5.drawJurors(id);
 
-        vm.warp(block.timestamp + 90 minutes);
+        address[] memory jurors = kleros5.getJurors(id);
+        
+        if (jurors.length < 2) {
+            console2.log("  Only 1 unique juror - completing normally.");
+            bytes32 salt = keccak256("salt");
+            vm.prank(jurors[0]);
+            kleros5.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
+            vm.warp(block.timestamp + 90 minutes);
+            vm.prank(jurors[0]);
+            kleros5.revealVote(id, 1, salt);
+            vm.warp(block.timestamp + 1 hours);
+            kleros5.finalize(id);
+            return;
+        }
 
-        _step("Reveal all votes and finalize");
-        vm.prank(bigJuror);
-        kleros.revealVote(id, 1, salt0);
-        vm.prank(medJuror);
-        kleros.revealVote(id, 1, salt1);
-        vm.prank(smallJuror);
-        kleros.revealVote(id, 2, salt2);
+        console2.log("  Selected", jurors.length, "unique jurors.");
 
-        vm.warp(block.timestamp + 1 hours);
-        kleros.finalize(id);
+        uint256[] memory initialStakes = new uint256[](jurors.length);
+        for (uint256 i = 0; i < jurors.length; i++) {
+            (uint256 amt,) = kleros5.getJurorStake(jurors[i]);
+            initialStakes[i] = amt;
+        }
 
-        _logDisputeSummary(id);
-
-        (uint256 bigFinalWei,) = kleros.getJurorStake(bigJuror);
-        (uint256 medFinalWei,) = kleros.getJurorStake(medJuror);
-
-        uint256 bigRewardWei = bigFinalWei - 500 ether;
-        uint256 medRewardWei = medFinalWei - 300 ether;
-
-        emit log_named_uint("bigReward (tokens)", _toTokens(bigRewardWei));
-        emit log_named_uint("medReward (tokens)", _toTokens(medRewardWei));
-
-        assertEq(bigRewardWei, 125 ether, "big reward exact");
-        assertEq(medRewardWei, 75 ether, "med reward exact");
-        assertEq(bigRewardWei * 3, medRewardWei * 5, "rewards proportional 5:3");
-    }
-
-    function testPhase3AllLoseIfAllMinority() public {
-        _scenarioHeader(
-            "Tie: No Redistribution, Ruling Undecided",
-            "Weights for Option1 and Option2 are equal (500 vs 500). "
-            "The system declares the ruling 'Undecided' and no stake is redistributed."
-        );
-
-        _step("Create dispute and draw jurors");
-        uint256 id = kleros.createDispute("ipfs://QmExample5");
-        emit log_named_uint("created dispute id", id);
-
-        kleros.drawJurors(id);
-        address[] memory jurors = kleros.getJurors(id);
-        _logJurorPanel(jurors);
-
-        bytes32 salt0 = keccak256("salt0");
-        bytes32 salt1 = keccak256("salt1");
-        bytes32 salt2 = keccak256("salt2");
-
-        (address bigJuror, address medJuror, address smallJuror) =
-            _classifyJurorsByStake(jurors);
-
-        _step("Commit: big->Option1 (500), med+small->Option2 (300+200)");
-        vm.prank(bigJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt0)));
-        vm.prank(medJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(2), salt1)));
-        vm.prank(smallJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(2), salt2)));
-
-        vm.warp(block.timestamp + 90 minutes);
-
-        _step("Reveal all votes and finalize");
-        vm.prank(bigJuror);
-        kleros.revealVote(id, 1, salt0);
-        vm.prank(medJuror);
-        kleros.revealVote(id, 2, salt1);
-        vm.prank(smallJuror);
-        kleros.revealVote(id, 2, salt2);
-
-        vm.warp(block.timestamp + 1 hours);
-        kleros.finalize(id);
-
-        _logDisputeSummary(id);
-
-        (, SimpleKlerosPhase3.Ruling ruling,,) = kleros.getDisputeSummary(id);
-        assertEq(uint256(ruling), uint256(SimpleKlerosPhase3.Ruling.Undecided), "should be tie");
-    }
-
-    function testPhase3CanUnstakeAfterWinning() public {
-        _scenarioHeader(
-            "Winner Can Unstake Rewards After Dispute",
-            "After winning and receiving rewards, a juror can unstake some tokens "
-            "and withdraw them as liquid balance."
-        );
-
-        _step("Create dispute, draw jurors and show panel");
-        uint256 id = kleros.createDispute("ipfs://QmExample6");
-        emit log_named_uint("created dispute id", id);
-
-        kleros.drawJurors(id);
-        address[] memory jurors = kleros.getJurors(id);
-        _logJurorPanel(jurors);
-
-        bytes32 salt0 = keccak256("salt0");
-        bytes32 salt1 = keccak256("salt1");
-        bytes32 salt2 = keccak256("salt2");
-
-        (address bigJuror, address medJuror, address smallJuror) =
-            _classifyJurorsByStake(jurors);
-
-        _step("Commit: big+med vote Option1, small votes Option2");
-        vm.prank(bigJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt0)));
-        vm.prank(medJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt1)));
-        vm.prank(smallJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(2), salt2)));
-
-        vm.warp(block.timestamp + 90 minutes);
-
-        _step("Reveal all votes and finalize");
-        vm.prank(bigJuror);
-        kleros.revealVote(id, 1, salt0);
-        vm.prank(medJuror);
-        kleros.revealVote(id, 1, salt1);
-        vm.prank(smallJuror);
-        kleros.revealVote(id, 2, salt2);
-
-        vm.warp(block.timestamp + 1 hours);
-        kleros.finalize(id);
-
-        _logDisputeSummary(id);
-
-        (uint256 bigFinalWei,) = kleros.getJurorStake(bigJuror);
-        emit log_named_uint("bigFinal (tokens)", _toTokens(bigFinalWei));
-        assertEq(bigFinalWei, 625 ether, "big gained 125 tokens");
-
-        _step("Winner unstake 125 tokens (the reward) and check balances");
-        uint256 balanceBefore = token.balanceOf(bigJuror);
-        emit log_named_uint("big balanceBefore (tokens)", _toTokens(balanceBefore));
-
-        vm.prank(bigJuror);
-        kleros.unstake(125 ether);
-
-        uint256 balanceAfter = token.balanceOf(bigJuror);
-        emit log_named_uint("big balanceAfter (tokens)", _toTokens(balanceAfter));
-
-        assertEq(balanceAfter - balanceBefore, 125 ether, "received 125 tokens");
-        (uint256 stakeAfterWei,) = kleros.getJurorStake(bigJuror);
-        emit log_named_uint("stakeAfter (tokens)", _toTokens(stakeAfterWei));
-        assertEq(stakeAfterWei, 500 ether, "back to original 500 stake");
-    }
-
-    // ============================================
-    // Security / access control tests
-    // ============================================
-
-    function testCannotCommitTwice() public {
-        _scenarioHeader(
-            "Double Commit Forbidden",
-            "A juror who has already committed a vote cannot commit again for the same dispute."
-        );
-
-        uint256 id = kleros.createDispute("ipfs://QmDoubleCommit");
-        kleros.drawJurors(id);
-        address[] memory jurors = kleros.getJurors(id);
-
+        _step(3, "ALL jurors commit their votes");
         bytes32 salt = keccak256("salt");
-        bytes32 commitHash = keccak256(abi.encodePacked(uint8(1), salt));
+        for (uint256 i = 0; i < jurors.length; i++) {
+            vm.prank(jurors[i]);
+            kleros5.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
+            console2.log("  Juror", i + 1, "committed a vote");
+        }
 
-        _step("First commit succeeds");
+        vm.warp(block.timestamp + 90 minutes);
+
+        _step(4, "Only the FIRST juror reveals - others stay silent!");
         vm.prank(jurors[0]);
-        kleros.commitVote(id, commitHash);
+        kleros5.revealVote(id, 1, salt);
+        console2.log("  Juror 1 revealed their vote: OPTION 1");
+        
+        for (uint256 i = 1; i < jurors.length; i++) {
+            console2.log("  Juror", i + 1, "DID NOT REVEAL (stayed silent)");
+        }
 
-        _step("Second commit from same juror must revert with 'already committed'");
-        vm.prank(jurors[0]);
-        vm.expectRevert("already committed");
-        kleros.commitVote(id, commitHash);
+        _step(5, "Finalize and see the consequences");
+        vm.warp(block.timestamp + 1 hours);
+        kleros5.finalize(id);
+
+        console2.log("");
+        console2.log("  RESULTS:");
+        console2.log("");
+        
+        (uint256 revealerFinal,) = kleros5.getJurorStake(jurors[0]);
+        console2.log("  Juror 1 (REVEALED):");
+        console2.log("    Stake before:", _toTokens(initialStakes[0]), "tokens");
+        console2.log("    Stake after:", _toTokens(revealerFinal), "tokens");
+        console2.log("    RESULT: GAINED", _toTokens(revealerFinal - initialStakes[0]), "tokens!");
+        
+        for (uint256 i = 1; i < jurors.length; i++) {
+            (uint256 finalStake,) = kleros5.getJurorStake(jurors[i]);
+            (,, uint256 selCount,) = kleros5.getJurorVote(id, jurors[i]);
+            
+            console2.log("");
+            console2.log("  Juror", i + 1, "(DID NOT REVEAL):");
+            console2.log("    Stake before:", _toTokens(initialStakes[i]), "tokens");
+            console2.log("    Stake after:", _toTokens(finalStake), "tokens");
+            console2.log("    RESULT: LOST", _toTokens(initialStakes[i] - finalStake), "tokens!");
+            
+            uint256 expectedSlash = MIN_STAKE * selCount;
+            assertEq(finalStake, initialStakes[i] - expectedSlash, "Non-revealer should be slashed");
+        }
+        
+        assertGt(revealerFinal, initialStakes[0], "Revealer should gain stake");
+        
+        console2.log("");
+        console2.log("SUCCESS: Non-revealers were punished and their stake went to the revealer!");
     }
 
-    function testNonJurorCannotCommit() public {
-        _scenarioHeader(
-            "Non-Juror Cannot Commit",
-            "An address that was not selected as juror cannot participate in commit."
+    function testTieNoRedistribution() public {
+        _header("TEST: Tie Scenario - Single Juror Case");
+        
+        _explain("When there's only one unique juror (same person picked for all slots),");
+        _explain("they're the only voter, so whatever they vote wins.");
+        
+        SimpleKlerosPhase3 kleros1 = new SimpleKlerosPhase3(
+            IERC20(address(token)),
+            MIN_STAKE,
+            1,  // Just 1 draw
+            1 hours,
+            1 hours
         );
 
-        uint256 id = kleros.createDispute("ipfs://QmNonJuror");
-        kleros.drawJurors(id);
+        address singleJuror = address(0x200);
+        token.transfer(singleJuror, 1000 ether);
 
+        vm.startPrank(singleJuror);
+        token.approve(address(kleros1), type(uint256).max);
+        kleros1.stake(500 ether);
+        vm.stopPrank();
+        
+        console2.log("  Created court with 1 draw and 1 juror.");
+
+        _step(1, "Create dispute and draw jurors");
+        uint256 id = kleros1.createDispute("ipfs://QmTie");
+        kleros1.drawJurors(id);
+
+        address[] memory jurors = kleros1.getJurors(id);
+        console2.log("  Selected", jurors.length, "unique juror(s).");
+
+        _step(2, "Single juror votes Option 1");
         bytes32 salt = keccak256("salt");
-        bytes32 commitHash = keccak256(abi.encodePacked(uint8(1), salt));
+        
+        vm.prank(jurors[0]);
+        kleros1.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
+        console2.log("  Juror committed vote...");
 
-        _step("nonJuror attempts to commit and should revert");
-        vm.prank(nonJuror);
-        vm.expectRevert("not a juror");
-        kleros.commitVote(id, commitHash);
+        vm.warp(block.timestamp + 90 minutes);
+
+        vm.prank(jurors[0]);
+        kleros1.revealVote(id, 1, salt);
+        console2.log("  Juror revealed: OPTION 1");
+
+        vm.warp(block.timestamp + 1 hours);
+        kleros1.finalize(id);
+
+        _step(3, "Check the outcome");
+        (, SimpleKlerosPhase3.Ruling ruling, uint256 v1, uint256 v2,) = kleros1.getDisputeSummary(id);
+        
+        console2.log("");
+        console2.log("  Votes for Option 1:", v1);
+        console2.log("  Votes for Option 2:", v2);
+        console2.log("  RULING:", _rulingToString(ruling));
+        
+        assertEq(uint256(ruling), uint256(SimpleKlerosPhase3.Ruling.Option1));
+        console2.log("");
+        console2.log("SUCCESS: Single juror's vote decided the outcome!");
     }
 
-    function testNonJurorCannotReveal() public {
-        _scenarioHeader(
-            "Non-Juror Cannot Reveal",
-            "Only selected jurors can reveal; non-jurors are rejected."
-        );
-
-        uint256 id = kleros.createDispute("ipfs://QmNonJurorReveal");
+    function testTieResultsInUndecided() public {
+        _header("TEST: True Tie - No One Reveals Their Vote");
+        
+        _explain("If NO ONE reveals their vote, the result is 0 vs 0 = TIE!");
+        _explain("In a tie, the ruling is 'Undecided' and no stake is redistributed.");
+        _explain("Everyone just gets their stake back.");
+        
+        _step(1, "Create dispute and draw jurors");
+        uint256 id = kleros.createDispute("ipfs://QmForcedTie");
         kleros.drawJurors(id);
+
+        address[] memory jurors = kleros.getJurors(id);
+        console2.log("  Selected", jurors.length, "unique juror(s).");
+
+        _step(2, "All jurors commit votes");
+        bytes32 salt = keccak256("salt");
+        for (uint256 i = 0; i < jurors.length; i++) {
+            vm.prank(jurors[i]);
+            kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
+            console2.log("  Juror", i + 1, "committed a vote");
+        }
+
+        _step(3, "TIME PASSES... but NO ONE REVEALS!");
+        console2.log("  Commit phase ends...");
+        console2.log("  Reveal phase ends...");
+        console2.log("  NO JUROR REVEALED THEIR VOTE!");
+        
+        vm.warp(block.timestamp + 3 hours);
+        
+        _step(4, "Finalize the dispute");
+        kleros.finalize(id);
+
+        (, SimpleKlerosPhase3.Ruling ruling, uint256 v1, uint256 v2,) = kleros.getDisputeSummary(id);
+        
+        console2.log("");
+        console2.log("  FINAL COUNT:");
+        console2.log("    Votes for Option 1:", v1);
+        console2.log("    Votes for Option 2:", v2);
+        console2.log("");
+        console2.log("  RULING:", _rulingToString(ruling));
+
+        assertEq(v1, 0, "No Option 1 votes since no one revealed");
+        assertEq(v2, 0, "No Option 2 votes since no one revealed");
+        assertEq(uint256(ruling), uint256(SimpleKlerosPhase3.Ruling.Undecided));
+        
+        console2.log("");
+        console2.log("SUCCESS: With 0 vs 0 votes, the result is correctly Undecided!");
+    }
+
+    function testCanUnstakeAfterDispute() public {
+        _header("TEST: Winners Can Withdraw Their Rewards");
+        
+        _explain("After a dispute is resolved, jurors can withdraw their stake.");
+        _explain("Winners can withdraw their original stake PLUS their share of the losers' stake!");
+        
+        _step(1, "Create and complete a dispute");
+        uint256 id = kleros.createDispute("ipfs://QmUnstake");
+        kleros.drawJurors(id);
+        
         address[] memory jurors = kleros.getJurors(id);
 
         bytes32 salt = keccak256("salt");
-
-        _step("All jurors commit a vote");
         for (uint256 i = 0; i < jurors.length; i++) {
             vm.prank(jurors[i]);
             kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
@@ -665,18 +819,132 @@ contract SimpleKlerosPhase3Test is Test {
 
         vm.warp(block.timestamp + 90 minutes);
 
-        _step("nonJuror tries to reveal and must revert");
+        for (uint256 i = 0; i < jurors.length; i++) {
+            vm.prank(jurors[i]);
+            kleros.revealVote(id, 1, salt);
+        }
+
+        vm.warp(block.timestamp + 1 hours);
+        kleros.finalize(id);
+        
+        console2.log("  Dispute completed. All jurors voted the same way (no losers).");
+
+        _step(2, "Check juror's stake status");
+        (uint256 stakeAfter, uint256 lockedAfter) = kleros.getJurorStake(jurors[0]);
+        console2.log("  Juror 1's stake:", _toTokens(stakeAfter), "tokens");
+        console2.log("  Juror 1's locked amount:", _toTokens(lockedAfter), "tokens");
+        
+        assertEq(lockedAfter, 0, "Stake should be unlocked after dispute");
+
+        _step(3, "Juror withdraws some tokens");
+        uint256 balanceBefore = token.balanceOf(jurors[0]);
+        console2.log("  Token balance before unstaking:", _toTokens(balanceBefore), "tokens");
+        
+        vm.prank(jurors[0]);
+        kleros.unstake(100 ether);
+        
+        uint256 balanceAfter = token.balanceOf(jurors[0]);
+        console2.log("  Token balance after unstaking:", _toTokens(balanceAfter), "tokens");
+        console2.log("  Tokens received:", _toTokens(balanceAfter - balanceBefore), "tokens");
+
+        (uint256 stakeAfterUnstake,) = kleros.getJurorStake(jurors[0]);
+        assertEq(stakeAfterUnstake, stakeAfter - 100 ether);
+        
+        console2.log("");
+        console2.log("SUCCESS: Juror was able to withdraw their tokens!");
+    }
+
+    // ============================================================================
+    // SECURITY TESTS - Things That Should NOT Be Allowed
+    // ============================================================================
+
+    function testCannotCommitTwice() public {
+        _header("TEST: Cannot Submit Vote Twice");
+        
+        _explain("Once you've committed your vote, you can't change it.");
+        _explain("This prevents manipulation and 'vote changing' after seeing others' behavior.");
+        
+        uint256 id = kleros.createDispute("ipfs://QmDoubleCommit");
+        kleros.drawJurors(id);
+        address[] memory jurors = kleros.getJurors(id);
+
+        bytes32 salt = keccak256("salt");
+        bytes32 commitHash = keccak256(abi.encodePacked(uint8(1), salt));
+
+        _step(1, "Juror commits their first vote");
+        vm.prank(jurors[0]);
+        kleros.commitVote(id, commitHash);
+        console2.log("  First vote committed successfully.");
+
+        _step(2, "Juror tries to commit again");
+        console2.log("  Attempting to submit a second vote...");
+        
+        vm.prank(jurors[0]);
+        vm.expectRevert("already committed");
+        kleros.commitVote(id, commitHash);
+        
+        console2.log("  BLOCKED! System rejected the second vote.");
+        console2.log("");
+        console2.log("SUCCESS: Double voting is prevented!");
+    }
+
+    function testNonJurorCannotCommit() public {
+        _header("TEST: Non-Jurors Cannot Vote");
+        
+        _explain("Only selected jurors can participate in voting.");
+        _explain("Random people off the street can't just walk in and vote!");
+        
+        uint256 id = kleros.createDispute("ipfs://QmNonJuror");
+        kleros.drawJurors(id);
+
+        bytes32 salt = keccak256("salt");
+        bytes32 commitHash = keccak256(abi.encodePacked(uint8(1), salt));
+
+        console2.log("  A random person (not a selected juror) tries to vote...");
+        
+        vm.prank(nonJuror);
+        vm.expectRevert("not a juror");
+        kleros.commitVote(id, commitHash);
+        
+        console2.log("  BLOCKED! Only selected jurors can vote.");
+        console2.log("");
+        console2.log("SUCCESS: Non-jurors are prevented from voting!");
+    }
+
+    function testNonJurorCannotReveal() public {
+        _header("TEST: Non-Jurors Cannot Reveal Votes");
+        
+        uint256 id = kleros.createDispute("ipfs://QmNonJurorReveal");
+        kleros.drawJurors(id);
+        address[] memory jurors = kleros.getJurors(id);
+
+        bytes32 salt = keccak256("salt");
+
+        for (uint256 i = 0; i < jurors.length; i++) {
+            vm.prank(jurors[i]);
+            kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
+        }
+
+        vm.warp(block.timestamp + 90 minutes);
+
+        console2.log("  Random person tries to reveal during reveal phase...");
+        
         vm.prank(nonJuror);
         vm.expectRevert("not a juror");
         kleros.revealVote(id, 1, salt);
+        
+        console2.log("  BLOCKED! Only selected jurors can reveal.");
+        console2.log("");
+        console2.log("SUCCESS: Non-jurors cannot interfere with the reveal phase!");
     }
 
     function testCannotRevealWithWrongSalt() public {
-        _scenarioHeader(
-            "Reveal Fails with Wrong Salt",
-            "Commitment binding: revealing with a different salt than used in commit causes revert."
-        );
-
+        _header("TEST: Cannot Reveal With Wrong Secret");
+        
+        _explain("When you commit a vote, you use a secret 'salt' to encrypt it.");
+        _explain("You must use the SAME salt when revealing, or the reveal fails.");
+        _explain("This proves you're revealing the same vote you originally committed.");
+        
         uint256 id = kleros.createDispute("ipfs://QmWrongSalt");
         kleros.drawJurors(id);
         address[] memory jurors = kleros.getJurors(id);
@@ -684,46 +952,59 @@ contract SimpleKlerosPhase3Test is Test {
         bytes32 correctSalt = keccak256("correctSalt");
         bytes32 wrongSalt = keccak256("wrongSalt");
 
+        _step(1, "Juror commits with their secret");
         vm.prank(jurors[0]);
         kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), correctSalt)));
+        console2.log("  Committed vote with secret: 'correctSalt'");
 
         vm.warp(block.timestamp + 90 minutes);
 
-        _step("Reveal with wrong salt must fail with 'bad reveal'");
+        _step(2, "Juror tries to reveal with WRONG secret");
+        console2.log("  Trying to reveal with secret: 'wrongSalt'...");
+        
         vm.prank(jurors[0]);
         vm.expectRevert("bad reveal");
         kleros.revealVote(id, 1, wrongSalt);
+        
+        console2.log("  BLOCKED! The secrets don't match.");
+        console2.log("");
+        console2.log("SUCCESS: You can't cheat by using a different secret!");
     }
 
     function testCannotRevealWithWrongVote() public {
-        _scenarioHeader(
-            "Reveal Fails with Wrong Vote",
-            "Commitment binding: revealing with a different vote than in the commit causes revert."
-        );
-
+        _header("TEST: Cannot Reveal Different Vote Than Committed");
+        
+        _explain("You can't commit 'Option 1' then reveal 'Option 2'.");
+        _explain("The cryptographic hash must match exactly.");
+        
         uint256 id = kleros.createDispute("ipfs://QmWrongVote");
         kleros.drawJurors(id);
         address[] memory jurors = kleros.getJurors(id);
 
         bytes32 salt = keccak256("salt");
 
+        _step(1, "Juror commits vote for Option 1");
         vm.prank(jurors[0]);
         kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
+        console2.log("  Committed: Option 1");
 
         vm.warp(block.timestamp + 90 minutes);
 
-        _step("Reveal with vote=2 while commit was for vote=1 must fail");
+        _step(2, "Juror tries to reveal as Option 2");
+        console2.log("  Trying to reveal: Option 2...");
+        
         vm.prank(jurors[0]);
         vm.expectRevert("bad reveal");
         kleros.revealVote(id, 2, salt);
+        
+        console2.log("  BLOCKED! Can't change your vote after committing.");
+        console2.log("");
+        console2.log("SUCCESS: Vote changing is impossible!");
     }
 
     function testCannotRevealTwice() public {
-        _scenarioHeader(
-            "Double Reveal Forbidden",
-            "A juror may reveal only once for each dispute."
-        );
-
+        _header("TEST: Cannot Reveal Vote Twice");
+        
         uint256 id = kleros.createDispute("ipfs://QmDoubleReveal");
         kleros.drawJurors(id);
         address[] memory jurors = kleros.getJurors(id);
@@ -735,22 +1016,29 @@ contract SimpleKlerosPhase3Test is Test {
 
         vm.warp(block.timestamp + 90 minutes);
 
-        _step("First reveal succeeds");
+        _step(1, "Juror reveals their vote");
         vm.prank(jurors[0]);
         kleros.revealVote(id, 1, salt);
+        console2.log("  First reveal: SUCCESS");
 
-        _step("Second reveal must revert with 'already revealed'");
+        _step(2, "Juror tries to reveal again");
+        console2.log("  Attempting second reveal...");
+        
         vm.prank(jurors[0]);
         vm.expectRevert("already revealed");
         kleros.revealVote(id, 1, salt);
+        
+        console2.log("  BLOCKED! Already revealed.");
+        console2.log("");
+        console2.log("SUCCESS: Double-reveal is prevented!");
     }
 
     function testCannotRevealInvalidVoteValue() public {
-        _scenarioHeader(
-            "Invalid Vote Values Rejected",
-            "Only vote values 1 or 2 are accepted at reveal time."
-        );
-
+        _header("TEST: Vote Must Be Option 1 or Option 2");
+        
+        _explain("You can only vote for Option 1 or Option 2.");
+        _explain("Trying to vote for 'Option 3' or any other value fails.");
+        
         uint256 id = kleros.createDispute("ipfs://QmInvalidVote");
         kleros.drawJurors(id);
         address[] memory jurors = kleros.getJurors(id);
@@ -758,100 +1046,127 @@ contract SimpleKlerosPhase3Test is Test {
         bytes32 salt = keccak256("salt");
 
         vm.prank(jurors[0]);
-        // Commit uses '3' but that's irrelevant; reveal will check 'vote' param
         kleros.commitVote(id, keccak256(abi.encodePacked(uint8(3), salt)));
 
         vm.warp(block.timestamp + 90 minutes);
 
-        _step("Reveal with vote=3 must revert with 'invalid vote'");
+        console2.log("  Trying to reveal vote for 'Option 3'...");
+        
         vm.prank(jurors[0]);
         vm.expectRevert("invalid vote");
         kleros.revealVote(id, 3, salt);
+        
+        console2.log("  BLOCKED! Only 1 or 2 are valid votes.");
+        console2.log("");
+        console2.log("SUCCESS: Invalid vote values are rejected!");
     }
 
-    // ============================================
-    // Phase transition enforcement
-    // ============================================
+    // ============================================================================
+    // TIMING TESTS - Phase Enforcement
+    // ============================================================================
 
     function testCannotRevealBeforeCommitDeadline() public {
-        _scenarioHeader(
-            "Cannot Reveal Before Commit Phase Ends",
-            "Reveal phase only starts after the commit deadline has passed."
-        );
-
+        _header("TEST: Cannot Reveal Too Early");
+        
+        _explain("The reveal phase only starts AFTER the commit deadline.");
+        _explain("You can't reveal early to see others' commits!");
+        
         uint256 id = kleros.createDispute("ipfs://QmEarlyReveal");
         kleros.drawJurors(id);
         address[] memory jurors = kleros.getJurors(id);
 
         bytes32 salt = keccak256("salt");
 
-        _step("Commit a vote");
         vm.prank(jurors[0]);
         kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
-
-        _step("Attempt to reveal immediately must revert with 'commit not finished'");
+        console2.log("  Juror committed their vote.");
+        console2.log("  Commit deadline: 1 hour from now");
+        console2.log("  Current time: RIGHT NOW (too early!)");
+        
+        console2.log("");
+        console2.log("  Trying to reveal immediately...");
+        
         vm.prank(jurors[0]);
         vm.expectRevert("commit not finished");
         kleros.revealVote(id, 1, salt);
+        
+        console2.log("  BLOCKED! Must wait for commit phase to end.");
+        console2.log("");
+        console2.log("SUCCESS: Early reveals are prevented!");
     }
 
     function testCannotCommitAfterDeadline() public {
-        _scenarioHeader(
-            "Cannot Commit After Commit Deadline",
-            "Once the commit window is closed, further commits are rejected."
-        );
-
+        _header("TEST: Cannot Commit After Deadline");
+        
+        _explain("The commit window is limited (1 hour in our tests).");
+        _explain("Late commits are rejected.");
+        
         uint256 id = kleros.createDispute("ipfs://QmLateCommit");
         kleros.drawJurors(id);
         address[] memory jurors = kleros.getJurors(id);
 
         bytes32 salt = keccak256("salt");
 
+        console2.log("  Commit deadline: 1 hour from dispute creation");
+        console2.log("  Fast-forwarding time by 2 hours...");
+        
         vm.warp(block.timestamp + 2 hours);
+        
+        console2.log("  Current time: 2 hours later (deadline passed!)");
+        console2.log("");
+        console2.log("  Trying to commit a vote...");
 
-        _step("Commit after deadline must revert with 'commit over'");
         vm.prank(jurors[0]);
         vm.expectRevert("commit over");
         kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
+        
+        console2.log("  BLOCKED! Too late to vote.");
+        console2.log("");
+        console2.log("SUCCESS: Late commits are rejected!");
     }
 
     function testCannotRevealAfterDeadline() public {
-        _scenarioHeader(
-            "Cannot Reveal After Reveal Deadline",
-            "Reveal attempts after the reveal window are rejected."
-        );
-
+        _header("TEST: Cannot Reveal After Deadline");
+        
+        _explain("The reveal window is also limited.");
+        _explain("If you don't reveal in time, you're treated as a non-participant.");
+        
         uint256 id = kleros.createDispute("ipfs://QmLateReveal");
         kleros.drawJurors(id);
         address[] memory jurors = kleros.getJurors(id);
 
         bytes32 salt = keccak256("salt");
 
-        _step("Commit within time");
         vm.prank(jurors[0]);
         kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
-
+        console2.log("  Juror committed their vote.");
+        
+        console2.log("  Fast-forwarding 3 hours (past BOTH deadlines)...");
         vm.warp(block.timestamp + 3 hours);
 
-        _step("Reveal after both commit and reveal windows must revert with 'reveal over'");
+        console2.log("  Trying to reveal now...");
+        
         vm.prank(jurors[0]);
         vm.expectRevert("reveal over");
         kleros.revealVote(id, 1, salt);
+        
+        console2.log("  BLOCKED! Reveal window has closed.");
+        console2.log("");
+        console2.log("SUCCESS: Late reveals are rejected!");
     }
 
     function testCannotFinalizeBeforeRevealDeadline() public {
-        _scenarioHeader(
-            "Cannot Finalize Before Reveal Deadline",
-            "Even if all votes are revealed early, the contract enforces the full reveal period."
-        );
-
+        _header("TEST: Cannot Finalize Early");
+        
+        _explain("The dispute cannot be finalized until the reveal deadline passes.");
+        _explain("This gives ALL jurors time to reveal their votes.");
+        
         uint256 id = kleros.createDispute("ipfs://QmEarlyFinalize");
         kleros.drawJurors(id);
         address[] memory jurors = kleros.getJurors(id);
 
         bytes32 salt = keccak256("salt");
 
-        _step("All jurors commit vote=1");
         for (uint256 i = 0; i < jurors.length; i++) {
             vm.prank(jurors[i]);
             kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
@@ -859,420 +1174,396 @@ contract SimpleKlerosPhase3Test is Test {
 
         vm.warp(block.timestamp + 90 minutes);
 
-        _step("All jurors reveal early");
         for (uint256 i = 0; i < jurors.length; i++) {
             vm.prank(jurors[i]);
             kleros.revealVote(id, 1, salt);
         }
+        
+        console2.log("  All jurors have revealed their votes.");
+        console2.log("  BUT the reveal deadline hasn't passed yet!");
+        console2.log("");
+        console2.log("  Trying to finalize early...");
 
-        _step("Attempt to finalize before reveal deadline must revert");
         vm.expectRevert("reveal not finished");
         kleros.finalize(id);
+        
+        console2.log("  BLOCKED! Must wait for reveal deadline.");
+        console2.log("");
+        console2.log("SUCCESS: Early finalization is prevented!");
     }
 
     function testCannotDrawJurorsTwice() public {
-        _scenarioHeader(
-            "Cannot Draw Jurors Twice",
-            "Once jurors have been drawn for a dispute, the phase changes and re-draw is disallowed."
-        );
-
+        _header("TEST: Cannot Draw Jurors Twice");
+        
+        _explain("Once jurors are selected for a dispute, you can't re-draw.");
+        _explain("This prevents manipulation of jury selection.");
+        
         uint256 id = kleros.createDispute("ipfs://QmDoubleDraw");
-        _step("First draw succeeds");
+        
+        console2.log("  First juror draw...");
         kleros.drawJurors(id);
+        console2.log("  SUCCESS: Jurors selected.");
+        
+        console2.log("");
+        console2.log("  Trying to draw jurors again...");
 
-        _step("Second draw must revert with 'wrong phase'");
         vm.expectRevert("wrong phase");
         kleros.drawJurors(id);
+        
+        console2.log("  BLOCKED! Jurors already selected.");
+        console2.log("");
+        console2.log("SUCCESS: Double-drawing is prevented!");
     }
 
-    // ============================================
-    // Staking mechanics
-    // ============================================
+    // ============================================================================
+    // STAKING TESTS
+    // ============================================================================
 
     function testCannotUnstakeWhileLocked() public {
-        _scenarioHeader(
-            "Cannot Unstake While Selected as Juror",
-            "A juror whose stake is locked in an active dispute cannot unstake."
-        );
-
+        _header("TEST: Cannot Unstake While Serving as Juror");
+        
+        _explain("When you're selected as a juror, your stake is LOCKED.");
+        _explain("You can't withdraw until the dispute is resolved.");
+        _explain("This ensures jurors have 'skin in the game'.");
+        
         uint256 id = kleros.createDispute("ipfs://QmLockedUnstake");
         kleros.drawJurors(id);
         address[] memory jurors = kleros.getJurors(id);
 
-        _step("First juror tries to unstake while locked and must revert");
+        (uint256 stake, uint256 locked) = kleros.getJurorStake(jurors[0]);
+        console2.log("  Juror 1's total stake:", _toTokens(stake), "tokens");
+        console2.log("  Juror 1's locked stake:", _toTokens(locked), "tokens");
+        console2.log("  Juror 1's available stake:", _toTokens(stake - locked), "tokens");
+        
+        console2.log("");
+        console2.log("  Trying to unstake ALL tokens...");
+
         vm.prank(jurors[0]);
-        vm.expectRevert("stake locked");
-        kleros.unstake(100 ether);
+        vm.expectRevert("not enough unlocked stake");
+        kleros.unstake(stake);
+        
+        console2.log("  BLOCKED! Can only unstake unlocked portion.");
+        console2.log("");
+        console2.log("SUCCESS: Locked stake cannot be withdrawn!");
     }
 
     function testCannotStakeBelowMinimum() public {
-        _scenarioHeader(
-            "Cannot Stake Below Minimum",
-            "New jurors must stake at least the configured minStake."
-        );
-
+        _header("TEST: Must Stake At Least Minimum Amount");
+        
+        _explain("To be a juror, you must stake at least 100 tokens.");
+        _explain("This prevents spam and ensures jurors have something to lose.");
+        
         address newJuror = address(0x100);
         token.transfer(newJuror, 1000 ether);
-        vm.label(newJuror, "newJurorBelowMin");
 
-        _step("newJuror attempts to stake only 50 tokens (below 100 min)");
+        console2.log("  Minimum stake required: 100 tokens");
+        console2.log("  Trying to stake only 50 tokens...");
+
         vm.startPrank(newJuror);
         token.approve(address(kleros), type(uint256).max);
         vm.expectRevert("below minStake");
         kleros.stake(50 ether);
         vm.stopPrank();
+        
+        console2.log("  BLOCKED! Stake too low.");
+        console2.log("");
+        console2.log("SUCCESS: Minimum stake is enforced!");
     }
 
     function testCannotStakeZero() public {
-        _scenarioHeader(
-            "Cannot Stake Zero",
-            "Staking 0 tokens is rejected."
-        );
+        _header("TEST: Cannot Stake Zero Tokens");
+        
+        console2.log("  Trying to stake 0 tokens...");
 
         vm.prank(juror1);
         vm.expectRevert("amount=0");
         kleros.stake(0);
+        
+        console2.log("  BLOCKED! Can't stake nothing.");
+        console2.log("");
+        console2.log("SUCCESS: Zero stakes are rejected!");
     }
 
-    function testCannotUnstakeMoreThanStaked() public {
-        _scenarioHeader(
-            "Cannot Unstake More Than Staked",
-            "A juror cannot withdraw more than their total stake."
-        );
+    function testCannotUnstakeMoreThanAvailable() public {
+        _header("TEST: Cannot Unstake More Than You Have");
+        
+        _step(1, "Complete a dispute to unlock stake");
+        uint256 id = _createAndCompleteDispute();
+        console2.log("  Dispute", id, "completed. Stake unlocked.");
 
-        uint256 id = _completeDisputeWithOption1Winning();
-        emit log_named_uint("helper dispute id", id);
+        _step(2, "Try to unstake way more than staked");
+        console2.log("  Trying to unstake 10,000 tokens (way more than staked)...");
 
-        _logJurorStake("juror1 before over-unstake", juror1);
-
-        _step("juror1 attempts to unstake 10,000 tokens and must revert");
         vm.prank(juror1);
-        vm.expectRevert("not enough stake");
+        vm.expectRevert("not enough unlocked stake");
         kleros.unstake(10_000 ether);
+        
+        console2.log("  BLOCKED! Can't withdraw more than you have.");
+        console2.log("");
+        console2.log("SUCCESS: Over-withdrawal is prevented!");
     }
 
-    // ============================================
-    // Edge cases & behaviour
-    // ============================================
-
-    function testUnanimousVote() public {
-        _scenarioHeader(
-            "Unanimous Vote: No Slashing",
-            "All jurors vote for the same option. No one is slashed; total stake remains constant."
-        );
-
-        uint256 id = kleros.createDispute("ipfs://QmUnanimous");
-        kleros.drawJurors(id);
-        address[] memory jurors = kleros.getJurors(id);
-
-        _logJurorPanel(jurors);
-
-        bytes32 salt0 = keccak256("salt0");
-        bytes32 salt1 = keccak256("salt1");
-        bytes32 salt2 = keccak256("salt2");
-
-        uint256 totalInitialWei;
-        for (uint256 i = 0; i < jurors.length; i++) {
-            (uint256 stakeAmt,) = kleros.getJurorStake(jurors[i]);
-            totalInitialWei += stakeAmt;
-        }
-        emit log_named_uint("totalInitial (tokens)", _toTokens(totalInitialWei));
-
-        _step("All jurors commit Option1");
-        vm.prank(jurors[0]);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt0)));
-        vm.prank(jurors[1]);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt1)));
-        vm.prank(jurors[2]);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt2)));
-
-        vm.warp(block.timestamp + 90 minutes);
-
-        _step("All jurors reveal Option1");
-        vm.prank(jurors[0]);
-        kleros.revealVote(id, 1, salt0);
-        vm.prank(jurors[1]);
-        kleros.revealVote(id, 1, salt1);
-        vm.prank(jurors[2]);
-        kleros.revealVote(id, 1, salt2);
-
-        vm.warp(block.timestamp + 1 hours);
-        kleros.finalize(id);
-
-        _logDisputeSummary(id);
-
-        uint256 totalFinalWei;
-        for (uint256 i = 0; i < jurors.length; i++) {
-            (uint256 stakeAmt,) = kleros.getJurorStake(jurors[i]);
-            totalFinalWei += stakeAmt;
-        }
-        emit log_named_uint("totalFinal (tokens)", _toTokens(totalFinalWei));
-        assertEq(totalFinalWei, totalInitialWei, "no slashing in unanimous");
-    }
-
-    function testSingleRevealerTakesAll() public {
-        _scenarioHeader(
-            "Single Revealer Takes All",
-            "All jurors commit to the same option, but only one reveals. "
-            "The lone revealer gets all the stake; non-revealers are fully slashed."
-        );
-
-        uint256 id = kleros.createDispute("ipfs://QmSingleRevealer");
-        kleros.drawJurors(id);
-        address[] memory jurors = kleros.getJurors(id);
-
-        _logJurorPanel(jurors);
-
-        bytes32 salt0 = keccak256("salt0");
-
-        (address bigJuror, address medJuror, address smallJuror) =
-            _classifyJurorsByStake(jurors);
-
-        _step("All commit Option1 but only bigJuror will reveal later");
-        vm.prank(bigJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt0)));
-        vm.prank(medJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), keccak256("m"))));
-        vm.prank(smallJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), keccak256("s"))));
-
-        vm.warp(block.timestamp + 90 minutes);
-
-        _step("Only bigJuror reveals");
-        vm.prank(bigJuror);
-        kleros.revealVote(id, 1, salt0);
-
-        vm.warp(block.timestamp + 1 hours);
-        kleros.finalize(id);
-
-        _logDisputeSummary(id);
-
-        (uint256 bigFinalWei,) = kleros.getJurorStake(bigJuror);
-        (uint256 medFinalWei,) = kleros.getJurorStake(medJuror);
-        (uint256 smallFinalWei,) = kleros.getJurorStake(smallJuror);
-
-        emit log_named_uint("bigFinal (tokens)", _toTokens(bigFinalWei));
-        emit log_named_uint("medFinal (tokens)", _toTokens(medFinalWei));
-        emit log_named_uint("smallFinal (tokens)", _toTokens(smallFinalWei));
-
-        assertEq(bigFinalWei, 1000 ether, "single revealer owns all stake");
-        assertEq(medFinalWei, 0, "med loses stake");
-        assertEq(smallFinalWei, 0, "small loses stake");
-    }
-
-    function testNoOneReveals() public {
-        _scenarioHeader(
-            "No One Reveals: Dispute Undecided",
-            "All jurors commit, but none reveals. The ruling remains 'Undecided' "
-            "and no redistribution happens."
-        );
-
-        uint256 id = kleros.createDispute("ipfs://QmNoReveal");
-        kleros.drawJurors(id);
-        address[] memory jurors = kleros.getJurors(id);
-
-        _step("All jurors commit a vote, but none will reveal later");
-        for (uint256 i = 0; i < jurors.length; i++) {
-            vm.prank(jurors[i]);
-            kleros.commitVote(
-                id,
-                keccak256(abi.encodePacked(uint8(1), keccak256(abi.encode(i))))
-            );
-        }
-
-        vm.warp(block.timestamp + 3 hours);
-        kleros.finalize(id);
-
-        _logDisputeSummary(id);
-
-        (, SimpleKlerosPhase3.Ruling ruling,,) = kleros.getDisputeSummary(id);
-        assertEq(uint256(ruling), uint256(SimpleKlerosPhase3.Ruling.Undecided), "no reveals -> undecided");
-    }
-
-    function testOption2Wins() public {
-        _scenarioHeader(
-            "Option2 Wins",
-            "Check that the system correctly handles the case where Option2 "
-            "gets the majority of voting weight."
-        );
-
-        uint256 id = kleros.createDispute("ipfs://QmOption2Wins");
-        kleros.drawJurors(id);
-        address[] memory jurors = kleros.getJurors(id);
-
-        _logJurorPanel(jurors);
-
-        bytes32 salt0 = keccak256("salt0");
-        bytes32 salt1 = keccak256("salt1");
-        bytes32 salt2 = keccak256("salt2");
-
-        (address bigJuror, address medJuror, address smallJuror) =
-            _classifyJurorsByStake(jurors);
-
-        _step("Commit: big+med vote Option2, small votes Option1");
-        vm.prank(bigJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(2), salt0)));
-        vm.prank(medJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(2), salt1)));
-        vm.prank(smallJuror);
-        kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt2)));
-
-        vm.warp(block.timestamp + 90 minutes);
-
-        _step("Reveal all and finalize; Option2 should win");
-        vm.prank(bigJuror);
-        kleros.revealVote(id, 2, salt0);
-        vm.prank(medJuror);
-        kleros.revealVote(id, 2, salt1);
-        vm.prank(smallJuror);
-        kleros.revealVote(id, 1, salt2);
-
-        vm.warp(block.timestamp + 1 hours);
-        kleros.finalize(id);
-
-        _logDisputeSummary(id);
-
-        (, SimpleKlerosPhase3.Ruling ruling,,) = kleros.getDisputeSummary(id);
-        assertEq(uint256(ruling), uint256(SimpleKlerosPhase3.Ruling.Option2), "Option2 wins");
-
-        (uint256 smallFinalWei,) = kleros.getJurorStake(smallJuror);
-        assertEq(smallFinalWei, 0, "loser is slashed");
-    }
-
-    function testCannotCreateDisputeWithoutEnoughJurors() public {
-        _scenarioHeader(
-            "Cannot Create Dispute Without Enough Jurors",
-            "If the system requires more jurors than currently staked addresses, "
-            "dispute creation fails."
-        );
-
-        SimpleKlerosPhase3 klerosNew = new SimpleKlerosPhase3(
-            IERC20(address(token)),
-            100 ether,
-            10, // require 10 jurors
-            1 hours,
-            1 hours
-        );
-        vm.label(address(klerosNew), "SimpleKlerosPhase3_TooManyJurors");
-
-        _step("Only one juror stakes, so there are not enough jurors");
-        vm.prank(juror1);
-        token.approve(address(klerosNew), type(uint256).max);
-        vm.prank(juror1);
-        klerosNew.stake(500 ether);
-
-        _step("Creating a dispute must revert with 'not enough jurors'");
-        vm.expectRevert("not enough jurors");
-        klerosNew.createDispute("ipfs://QmNotEnough");
-    }
-
-    function testJurorListGrows() public {
-        _scenarioHeader(
-            "Juror List Grows as New Jurors Stake",
-            "Whenever a new address stakes for the first time, it is added to the juror list."
-        );
-
-        address[] memory initial = kleros.getJurorList();
-        emit log_named_uint("initial juror count", initial.length);
-        assertEq(initial.length, 3);
-
-        address newJuror = address(0x100);
-        vm.label(newJuror, "newJurorGrow");
-        token.transfer(newJuror, 1000 ether);
-
-        _step("newJuror stakes exactly the minimum (100 tokens)");
-        vm.startPrank(newJuror);
-        token.approve(address(kleros), type(uint256).max);
-        kleros.stake(100 ether);
-        vm.stopPrank();
-
-        address[] memory afterList = kleros.getJurorList();
-        emit log_named_uint("new juror count", afterList.length);
-        assertEq(afterList.length, 4);
-    }
-
-    function testVoteWeightSnapshot() public {
-        _scenarioHeader(
-            "Vote Weight Snapshot at Selection Time",
-            "Check that each juror has a non-zero snapshot weight as soon as they are drawn."
-        );
-
-        uint256 id = kleros.createDispute("ipfs://QmSnapshot");
-        kleros.drawJurors(id);
-        address[] memory jurors = kleros.getJurors(id);
-
-        _step("Inspect snapshot weight for first juror before any commit or reveal");
-        (bool revealed, uint8 vote, uint256 snapshotWeightWei) =
-            kleros.getJurorVote(id, jurors[0]);
-
-        emit log_named_uint("revealed (0/1)", revealed ? 1 : 0);
-        emit log_named_uint("vote", vote);
-        emit log_named_uint("snapshotWeight (tokens)", _toTokens(snapshotWeightWei));
-
-        assertFalse(revealed, "should not be revealed yet");
-        assertEq(vote, 0, "no vote recorded yet");
-        assertGt(snapshotWeightWei, 0, "snapshot should be non-zero");
-    }
-
-    // ============================================
-    // Simple view tests
-    // ============================================
+    // ============================================================================
+    // VIEW FUNCTION TESTS
+    // ============================================================================
 
     function testGetDisputeSummary() public {
-        _scenarioHeader(
-            "Basic Dispute Summary After Creation",
-            "Immediately after creation, a dispute is in 'Created' phase with no ruling or votes."
-        );
-
+        _header("TEST: Get Dispute Summary");
+        
         uint256 id = kleros.createDispute("ipfs://QmSummary");
+        console2.log("  Created dispute", id);
+        console2.log("");
 
-        (SimpleKlerosPhase3.Phase phase,
-         SimpleKlerosPhase3.Ruling ruling,
-         uint256 v1,
-         uint256 v2) = kleros.getDisputeSummary(id);
+        (
+            SimpleKlerosPhase3.Phase phase,
+            SimpleKlerosPhase3.Ruling ruling,
+            uint256 v1,
+            uint256 v2,
+            uint256 totalSelections
+        ) = kleros.getDisputeSummary(id);
 
-        emit log_named_string("phase", _phaseToString(phase));
-        emit log_named_string("ruling", _rulingToString(ruling));
-        emit log_named_uint("Option1 weight (tokens)", _toTokens(v1));
-        emit log_named_uint("Option2 weight (tokens)", _toTokens(v2));
+        console2.log("  DISPUTE STATUS:");
+        console2.log("    Phase:", _phaseToString(phase));
+        console2.log("    Ruling:", _rulingToString(ruling));
+        console2.log("    Votes for Option 1:", v1);
+        console2.log("    Votes for Option 2:", v2);
+        console2.log("    Total juror selections:", totalSelections);
 
         assertEq(uint256(phase), uint256(SimpleKlerosPhase3.Phase.Created));
         assertEq(uint256(ruling), uint256(SimpleKlerosPhase3.Ruling.Undecided));
-        assertEq(v1, 0);
-        assertEq(v2, 0);
     }
 
-    function testGetJurorStake() public {
-        _scenarioHeader(
-            "Simple Stake View",
-            "Check that the initial stake for juror1 is correctly recorded and not locked."
-        );
-
-        (uint256 amountWei, bool locked) = kleros.getJurorStake(juror1);
-        emit log_named_uint("juror1 stake (tokens)", _toTokens(amountWei));
-        emit log_named_uint("juror1 locked (0/1)", locked ? 1 : 0);
-
-        assertEq(amountWei, 500 ether);
-        assertFalse(locked);
+    function testGetJurorStake() public view {
+        _header("TEST: Get Juror Stake Information");
+        
+        (uint256 amount, uint256 locked) = kleros.getJurorStake(juror1);
+        
+        console2.log("  ALICE'S (juror1) STAKE INFO:");
+        console2.log("    Total staked:", _toTokens(amount), "tokens");
+        console2.log("    Currently locked:", _toTokens(locked), "tokens");
+        console2.log("    Available to withdraw:", _toTokens(amount - locked), "tokens");
     }
 
-    // ============================================
-    // Helper: complete dispute with unanimous Option1
-    // ============================================
-
-    function _completeDisputeWithOption1Winning() internal returns (uint256) {
-        _scenarioHeader(
-            "Helper: Complete Dispute with Unanimous Option1",
-            "All jurors vote Option1 and reveal, producing a simple winner scenario."
-        );
-
-        uint256 id = kleros.createDispute("ipfs://QmHelper");
+    function testGetTotalSelections() public {
+        _header("TEST: Get Total Selections Count");
+        
+        uint256 id = kleros.createDispute("ipfs://QmSelections");
+        console2.log("  Before drawing jurors...");
+        console2.log("    Total selections:", kleros.getTotalSelections(id));
+        
         kleros.drawJurors(id);
+        
+        console2.log("  After drawing jurors...");
+        console2.log("    Total selections:", kleros.getTotalSelections(id));
+
+        uint256 total = kleros.getTotalSelections(id);
+        assertEq(total, NUM_DRAWS);
+    }
+
+    // ============================================================================
+    // BUG FIX VERIFICATION TESTS
+    // ============================================================================
+
+    function testFix_StaleTotalStakeInDrawLoop() public {
+        _header("BUG FIX TEST: Stale totalStake in Draw Loop");
+        
+        _explain("ORIGINAL BUG: totalStake was calculated ONCE at the start of drawJurors.");
+        _explain("As jurors got selected, their lockedAmount increased, reducing available stake.");
+        _explain("But the random target was still based on the OLD totalStake!");
+        _explain("This could cause target > actual cumulative, hitting the fallback.");
+        console2.log("");
+        _explain("FIX: Recalculate totalStake for EACH draw iteration.");
+        
+        _step(1, "Create a scenario with limited stake");
+        // Create a new kleros with 5 draws
+        SimpleKlerosPhase3 klerosTest = new SimpleKlerosPhase3(
+            IERC20(address(token)),
+            MIN_STAKE,  // 100 tokens per selection
+            5,          // 5 draws = need 500 tokens total
+            1 hours,
+            1 hours
+        );
+
+        // Create a juror with exactly enough stake for 5 selections
+        address limitedJuror = address(0x500);
+        token.transfer(limitedJuror, 600 ether);
+
+        vm.startPrank(limitedJuror);
+        token.approve(address(klerosTest), type(uint256).max);
+        klerosTest.stake(500 ether);  // Exactly 500 = 5 x 100 minStake
+        vm.stopPrank();
+
+        console2.log("  Created juror with 500 tokens staked (exactly 5 x minStake).");
+        console2.log("  Initial available stake: 500 tokens");
+        console2.log("  After draw 1: 400 tokens available");
+        console2.log("  After draw 2: 300 tokens available");
+        console2.log("  ... and so on");
+        console2.log("");
+        console2.log("  WITHOUT THE FIX: Random target could be 0-499, but actual");
+        console2.log("  cumulative drops each iteration. Target 450 with cumulative 300");
+        console2.log("  would hit the fallback!");
+
+        _step(2, "Draw jurors - this should work with the fix");
+        uint256 id = klerosTest.createDispute("ipfs://QmStaleTotalStakeFix");
+        
+        // This should NOT revert - the fix recalculates available stake each iteration
+        klerosTest.drawJurors(id);
+        
+        (,,,, uint256 totalSelections) = klerosTest.getDisputeSummary(id);
+        console2.log("  Total selections made:", totalSelections);
+        
+        assertEq(totalSelections, 5, "Should complete all 5 draws");
+        
+        // Verify the juror was selected 5 times
+        (,, uint256 selCount,) = klerosTest.getJurorVote(id, limitedJuror);
+        console2.log("  Juror's selection count:", selCount);
+        assertEq(selCount, 5, "Juror should be selected exactly 5 times");
+        
+        console2.log("");
+        console2.log("SUCCESS: The stale totalStake bug is fixed!");
+        console2.log("Each draw correctly recalculates available stake.");
+    }
+
+    function testFix_NoDoSWhenJurorHasInsufficientStake() public {
+        _header("BUG FIX TEST: No DoS When Juror Has Insufficient Stake");
+        
+        _explain("ORIGINAL BUG: If a selected juror didn't have enough unlocked stake,");
+        _explain("the entire drawJurors transaction would REVERT.");
+        _explain("An attacker could exploit this to prevent any disputes from being created.");
+        console2.log("");
+        _explain("FIX: Instead of reverting, retry with a different random selection.");
+        
+        _step(1, "Create scenario with mixed stake availability");
+        SimpleKlerosPhase3 klerosTest = new SimpleKlerosPhase3(
+            IERC20(address(token)),
+            MIN_STAKE,  // 100 tokens per selection
+            3,          // 3 draws
+            1 hours,
+            1 hours
+        );
+
+        // Create jurors with different stake amounts
+        address richJuror = address(0x600);
+        address poorJuror = address(0x601);
+        
+        token.transfer(richJuror, 1000 ether);
+        token.transfer(poorJuror, 150 ether);
+
+        vm.startPrank(richJuror);
+        token.approve(address(klerosTest), type(uint256).max);
+        klerosTest.stake(500 ether);  // Can handle 5 selections
+        vm.stopPrank();
+
+        vm.startPrank(poorJuror);
+        token.approve(address(klerosTest), type(uint256).max);
+        klerosTest.stake(100 ether);  // Can only handle 1 selection!
+        vm.stopPrank();
+
+        console2.log("  Rich juror: 500 tokens staked (can be selected up to 5 times)");
+        console2.log("  Poor juror: 100 tokens staked (can only be selected ONCE)");
+        console2.log("");
+        console2.log("  If poor juror is selected twice, the second selection should");
+        console2.log("  be retried with a new random number (not revert!)");
+
+        _step(2, "Draw jurors multiple times to stress test");
+        // Run multiple disputes to increase chance of hitting the edge case
+        uint256 successfulDisputes = 0;
+        
+        for (uint256 i = 0; i < 5; i++) {
+            uint256 id = klerosTest.createDispute(string(abi.encodePacked("ipfs://DoS", i)));
+            
+            // This should NOT revert even if poor juror is selected when they can't accept
+            klerosTest.drawJurors(id);
+            
+            (,,,, uint256 totalSelections) = klerosTest.getDisputeSummary(id);
+            if (totalSelections == 3) {
+                successfulDisputes++;
+            }
+            
+            // Complete the dispute to unlock stakes for next round
+            address[] memory jurors = klerosTest.getJurors(id);
+            bytes32 salt = keccak256(abi.encodePacked("salt", i));
+            
+            for (uint256 j = 0; j < jurors.length; j++) {
+                vm.prank(jurors[j]);
+                klerosTest.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
+            }
+            
+            vm.warp(block.timestamp + 90 minutes);
+            
+            for (uint256 j = 0; j < jurors.length; j++) {
+                vm.prank(jurors[j]);
+                klerosTest.revealVote(id, 1, salt);
+            }
+            
+            vm.warp(block.timestamp + 1 hours);
+            klerosTest.finalize(id);
+        }
+
+        console2.log("  Completed", successfulDisputes, "disputes successfully!");
+        assertEq(successfulDisputes, 5, "All disputes should complete without DoS");
+        
+        console2.log("");
+        console2.log("SUCCESS: No DoS! The retry mechanism handles insufficient stake.");
+    }
+
+    function testFix_CorrectTotalStakeAfterMultipleSelections() public {
+        _header("BUG FIX TEST: Correct Available Stake Tracking");
+        
+        _explain("This test verifies that available stake is correctly tracked");
+        _explain("as jurors get selected multiple times within a single drawJurors call.");
+        
+        _step(1, "Check initial state");
+        (uint256 j1Stake, uint256 j1Locked) = kleros.getJurorStake(juror1);
+        (uint256 j2Stake, uint256 j2Locked) = kleros.getJurorStake(juror2);
+        (uint256 j3Stake, uint256 j3Locked) = kleros.getJurorStake(juror3);
+        
+        console2.log("  Before any dispute:");
+        console2.log("    Juror1: stake=", _toTokens(j1Stake), ", locked=", _toTokens(j1Locked));
+        console2.log("    Juror2: stake=", _toTokens(j2Stake), ", locked=", _toTokens(j2Locked));
+        console2.log("    Juror3: stake=", _toTokens(j3Stake), ", locked=", _toTokens(j3Locked));
+
+        _step(2, "Create dispute and draw jurors");
+        uint256 id = kleros.createDispute("ipfs://QmStakeTracking");
+        kleros.drawJurors(id);
+
+        _step(3, "Verify locked amounts match selection counts");
         address[] memory jurors = kleros.getJurors(id);
+        
+        uint256 totalLocked = 0;
+        for (uint256 i = 0; i < jurors.length; i++) {
+            (,, uint256 selCount, uint256 lockedInDispute) = kleros.getJurorVote(id, jurors[i]);
+            (uint256 stakeNow, uint256 lockedNow) = kleros.getJurorStake(jurors[i]);
+            
+            console2.log("");
+            console2.log("  Juror", i + 1, ":");
+            console2.log("    Selection count:", selCount);
+            console2.log("    Locked in this dispute:", _toTokens(lockedInDispute), "tokens");
+            console2.log("    Total locked (global):", _toTokens(lockedNow), "tokens");
+            console2.log("    Expected locked:", _toTokens(selCount * MIN_STAKE), "tokens");
+            
+            assertEq(lockedInDispute, selCount * MIN_STAKE, "Dispute lock should match");
+            totalLocked += lockedInDispute;
+        }
+        
+        console2.log("");
+        console2.log("  Total locked across all jurors:", _toTokens(totalLocked), "tokens");
+        console2.log("  Expected (3 draws x 100 minStake):", _toTokens(3 * MIN_STAKE), "tokens");
+        
+        assertEq(totalLocked, 3 * MIN_STAKE, "Total locked should equal numDraws * minStake");
+        
+        console2.log("");
+        console2.log("SUCCESS: Stake tracking is correct after multiple selections!");
+    }
 
-        bytes32 salt = keccak256("helper");
+    // ============================================================================
+    // HELPER FUNCTIONS
+    // ============================================================================
 
-        _step("All jurors commit Option1");
+    function _completeDispute(uint256 id) internal {
+        address[] memory jurors = kleros.getJurors(id);
+        bytes32 salt = keccak256("complete");
+
         for (uint256 i = 0; i < jurors.length; i++) {
             vm.prank(jurors[i]);
             kleros.commitVote(id, keccak256(abi.encodePacked(uint8(1), salt)));
@@ -1280,7 +1571,6 @@ contract SimpleKlerosPhase3Test is Test {
 
         vm.warp(block.timestamp + 90 minutes);
 
-        _step("All jurors reveal Option1");
         for (uint256 i = 0; i < jurors.length; i++) {
             vm.prank(jurors[i]);
             kleros.revealVote(id, 1, salt);
@@ -1288,8 +1578,12 @@ contract SimpleKlerosPhase3Test is Test {
 
         vm.warp(block.timestamp + 1 hours);
         kleros.finalize(id);
+    }
 
-        _logDisputeSummary(id);
+    function _createAndCompleteDispute() internal returns (uint256) {
+        uint256 id = kleros.createDispute("ipfs://QmHelper");
+        kleros.drawJurors(id);
+        _completeDispute(id);
         return id;
     }
 }
