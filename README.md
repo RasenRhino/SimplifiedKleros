@@ -266,19 +266,18 @@ Suite result: ok. 37 passed; 0 failed; 0 skipped
 
 ---
 
-## Bug Fixes Implemented
+## Some more issues 
 
-### 1. Stale totalStake in Draw Loop
-**Problem:** totalStake calculated once at start, but available stake decreases each draw.
-**Fix:** Recalculate `_getTotalStake()` for each draw iteration.
+Every time we looked at our code, we found new issues in our simplified versions, for instance if stake >min_stake , someone can do a confidence attack, and whales can really mess up the voting. 
 
-### 2. DoS via Revert on Insufficient Stake
-**Problem:** If selected juror couldn't accept, entire transaction reverted.
-**Fix:** Retry mechanism with new random number instead of reverting.
+DoS issues, currently fixed 
 
-### 3. Fallback Checked Total Instead of Available Stake
-**Problem:** Fallback returned juror with total stake ≥ minStake, but they might be fully locked.
-**Fix:** Fallback now checks `(amount - lockedAmount) >= minStake`.
+No hedging yet. (all your eggs in one basket even if you get selected multiple times)
+
+In some cases , we do face rounding errors. 
+
+We don’t do concurrent disputes right now. That might bring its own sets of problems, next step should be to deal with appeals first.
+
 
 ---
 
