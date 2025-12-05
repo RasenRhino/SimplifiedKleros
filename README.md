@@ -282,27 +282,3 @@ Suite result: ok. 37 passed; 0 failed; 0 skipped
 
 ---
 
-## Example: Viewing Random Selection Results
-
-Run this command to see different selection results with varying random seeds:
-
-```bash
-forge test --match-test "testWeightedSelectionWithMultipleRandomSeeds" -vvv
-```
-
-Sample output:
-```
-RUN 1 | Block: 5145 | Timestamp: 646045
-  Alice (500 stake): 7 / 15
-  Bob (300 stake): 5 / 15
-  Charlie (200 stake): 3 / 15
-----------------------------------------
-RUN 2 | Block: 10473 | Timestamp: 450373
-  Alice (500 stake): 3 / 15
-  Bob (300 stake): 8 / 15
-  Charlie (200 stake): 4 / 15
-----------------------------------------
-...
-Each run shows DIFFERENT selection counts!
-This proves the randomness is working.
-```
