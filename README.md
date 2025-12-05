@@ -268,8 +268,6 @@ Suite result: ok. 37 passed; 0 failed; 0 skipped
 
 ## Some more issues 
 
-Every time we looked at our code, we found new issues in our simplified versions, for instance if stake >min_stake , someone can do a confidence attack, and whales can really mess up the voting. 
-
 No hedging yet. (all your eggs in one basket even if you get selected multiple times)
 
 In some cases , we do face rounding errors. 
