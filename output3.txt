@@ -1,0 +1,858 @@
+No files changed, compilation skipped
+
+Ran 35 tests for test/SimpleKlerosPhase3Test.t.sol:SimpleKlerosPhase3Test
+[PASS] testCanUnstakeAfterDispute() (gas: 621332)
+Logs:
+  
+  ============================================================
+  TEST: Winners Can Withdraw Their Rewards
+  ============================================================
+  
+    >> After a dispute is resolved, jurors can withdraw their stake.
+    >> Winners can withdraw their original stake PLUS their share of the losers' stake!
+  
+  STEP 1 : Create and complete a dispute
+  ------------------------------------------------------------
+    Dispute completed. All jurors voted the same way (no losers).
+  
+  STEP 2 : Check juror's stake status
+  ------------------------------------------------------------
+    Juror 1's stake: 300 tokens
+    Juror 1's locked amount: 0 tokens
+  
+  STEP 3 : Juror withdraws some tokens
+  ------------------------------------------------------------
+    Token balance before unstaking: 9700 tokens
+    Token balance after unstaking: 9800 tokens
+    Tokens received: 100 tokens
+  
+  SUCCESS: Juror was able to withdraw their tokens!
+
+[PASS] testCannotCommitAfterDeadline() (gas: 459256)
+Logs:
+  
+  ============================================================
+  TEST: Cannot Commit After Deadline
+  ============================================================
+  
+    >> The commit window is limited (1 hour in our tests).
+    >> Late commits are rejected.
+    Commit deadline: 1 hour from dispute creation
+    Fast-forwarding time by 2 hours...
+    Current time: 2 hours later (deadline passed!)
+  
+    Trying to commit a vote...
+    BLOCKED! Too late to vote.
+  
+  SUCCESS: Late commits are rejected!
+
+[PASS] testCannotCommitTwice() (gas: 489507)
+Logs:
+  
+  ============================================================
+  TEST: Cannot Submit Vote Twice
+  ============================================================
+  
+    >> Once you've committed your vote, you can't change it.
+    >> This prevents manipulation and 'vote changing' after seeing others' behavior.
+  
+  STEP 1 : Juror commits their first vote
+  ------------------------------------------------------------
+    First vote committed successfully.
+  
+  STEP 2 : Juror tries to commit again
+  ------------------------------------------------------------
+    Attempting to submit a second vote...
+    BLOCKED! System rejected the second vote.
+  
+  SUCCESS: Double voting is prevented!
+
+[PASS] testCannotDrawJurorsTwice() (gas: 454574)
+Logs:
+  
+  ============================================================
+  TEST: Cannot Draw Jurors Twice
+  ============================================================
+  
+    >> Once jurors are selected for a dispute, you can't re-draw.
+    >> This prevents manipulation of jury selection.
+    First juror draw...
+    SUCCESS: Jurors selected.
+  
+    Trying to draw jurors again...
+    BLOCKED! Jurors already selected.
+  
+  SUCCESS: Double-drawing is prevented!
+
+[PASS] testCannotFinalizeBeforeRevealDeadline() (gas: 587715)
+Logs:
+  
+  ============================================================
+  TEST: Cannot Finalize Early
+  ============================================================
+  
+    >> The dispute cannot be finalized until the reveal deadline passes.
+    >> This gives ALL jurors time to reveal their votes.
+    All jurors have revealed their votes.
+    BUT the reveal deadline hasn't passed yet!
+  
+    Trying to finalize early...
+    BLOCKED! Must wait for reveal deadline.
+  
+  SUCCESS: Early finalization is prevented!
+
+[PASS] testCannotRevealAfterDeadline() (gas: 484545)
+Logs:
+  
+  ============================================================
+  TEST: Cannot Reveal After Deadline
+  ============================================================
+  
+    >> The reveal window is also limited.
+    >> If you don't reveal in time, you're treated as a non-participant.
+    Juror committed their vote.
+    Fast-forwarding 3 hours (past BOTH deadlines)...
+    Trying to reveal now...
+    BLOCKED! Reveal window has closed.
+  
+  SUCCESS: Late reveals are rejected!
+
+[PASS] testCannotRevealBeforeCommitDeadline() (gas: 485409)
+Logs:
+  
+  ============================================================
+  TEST: Cannot Reveal Too Early
+  ============================================================
+  
+    >> The reveal phase only starts AFTER the commit deadline.
+    >> You can't reveal early to see others' commits!
+    Juror committed their vote.
+    Commit deadline: 1 hour from now
+    Current time: RIGHT NOW (too early!)
+  
+    Trying to reveal immediately...
+    BLOCKED! Must wait for commit phase to end.
+  
+  SUCCESS: Early reveals are prevented!
+
+[PASS] testCannotRevealInvalidVoteValue() (gas: 482679)
+Logs:
+  
+  ============================================================
+  TEST: Vote Must Be Option 1 or Option 2
+  ============================================================
+  
+    >> You can only vote for Option 1 or Option 2.
+    >> Trying to vote for 'Option 3' or any other value fails.
+    Trying to reveal vote for 'Option 3'...
+    BLOCKED! Only 1 or 2 are valid votes.
+  
+  SUCCESS: Invalid vote values are rejected!
+
+[PASS] testCannotRevealTwice() (gas: 536843)
+Logs:
+  
+  ============================================================
+  TEST: Cannot Reveal Vote Twice
+  ============================================================
+  
+  
+  STEP 1 : Juror reveals their vote
+  ------------------------------------------------------------
+    First reveal: SUCCESS
+  
+  STEP 2 : Juror tries to reveal again
+  ------------------------------------------------------------
+    Attempting second reveal...
+    BLOCKED! Already revealed.
+  
+  SUCCESS: Double-reveal is prevented!
+
+[PASS] testCannotRevealWithWrongSalt() (gas: 494058)
+Logs:
+  
+  ============================================================
+  TEST: Cannot Reveal With Wrong Secret
+  ============================================================
+  
+    >> When you commit a vote, you use a secret 'salt' to encrypt it.
+    >> You must use the SAME salt when revealing, or the reveal fails.
+    >> This proves you're revealing the same vote you originally committed.
+  
+  STEP 1 : Juror commits with their secret
+  ------------------------------------------------------------
+    Committed vote with secret: 'correctSalt'
+  
+  STEP 2 : Juror tries to reveal with WRONG secret
+  ------------------------------------------------------------
+    Trying to reveal with secret: 'wrongSalt'...
+    BLOCKED! The secrets don't match.
+  
+  SUCCESS: You can't cheat by using a different secret!
+
+[PASS] testCannotRevealWithWrongVote() (gas: 491957)
+Logs:
+  
+  ============================================================
+  TEST: Cannot Reveal Different Vote Than Committed
+  ============================================================
+  
+    >> You can't commit 'Option 1' then reveal 'Option 2'.
+    >> The cryptographic hash must match exactly.
+  
+  STEP 1 : Juror commits vote for Option 1
+  ------------------------------------------------------------
+    Committed: Option 1
+  
+  STEP 2 : Juror tries to reveal as Option 2
+  ------------------------------------------------------------
+    Trying to reveal: Option 2...
+    BLOCKED! Can't change your vote after committing.
+  
+  SUCCESS: Vote changing is impossible!
+
+[PASS] testCannotStakeBelowMinimum() (gas: 140784)
+Logs:
+  
+  ============================================================
+  TEST: Must Stake At Least Minimum Amount
+  ============================================================
+  
+    >> To be a juror, you must stake at least 100 tokens.
+    >> This prevents spam and ensures jurors have something to lose.
+    Minimum stake required: 100 tokens
+    Trying to stake only 50 tokens...
+    BLOCKED! Stake too low.
+  
+  SUCCESS: Minimum stake is enforced!
+
+[PASS] testCannotStakeZero() (gas: 20530)
+Logs:
+  
+  ============================================================
+  TEST: Cannot Stake Zero Tokens
+  ============================================================
+  
+    Trying to stake 0 tokens...
+    BLOCKED! Can't stake nothing.
+  
+  SUCCESS: Zero stakes are rejected!
+
+[PASS] testCannotUnstakeMoreThanAvailable() (gas: 587215)
+Logs:
+  
+  ============================================================
+  TEST: Cannot Unstake More Than You Have
+  ============================================================
+  
+  
+  STEP 1 : Complete a dispute to unlock stake
+  ------------------------------------------------------------
+    Dispute 1 completed. Stake unlocked.
+  
+  STEP 2 : Try to unstake way more than staked
+  ------------------------------------------------------------
+    Trying to unstake 10,000 tokens (way more than staked)...
+    BLOCKED! Can't withdraw more than you have.
+  
+  SUCCESS: Over-withdrawal is prevented!
+
+[PASS] testCannotUnstakeWhileLocked() (gas: 462017)
+Logs:
+  
+  ============================================================
+  TEST: Cannot Unstake While Serving as Juror
+  ============================================================
+  
+    >> When you're selected as a juror, your stake is LOCKED.
+    >> You can't withdraw until the dispute is resolved.
+    >> This ensures jurors have 'skin in the game'.
+    Juror 1's total stake: 300 tokens
+    Juror 1's locked stake: 200 tokens
+    Juror 1's available stake: 100 tokens
+  
+    Trying to unstake ALL tokens...
+    BLOCKED! Can only unstake unlocked portion.
+  
+  SUCCESS: Locked stake cannot be withdrawn!
+
+[PASS] testFix_CorrectTotalStakeAfterMultipleSelections() (gas: 499037)
+Logs:
+  
+  ============================================================
+  BUG FIX TEST: Correct Available Stake Tracking
+  ============================================================
+  
+    >> This test verifies that available stake is correctly tracked
+    >> as jurors get selected multiple times within a single drawJurors call.
+  
+  STEP 1 : Check initial state
+  ------------------------------------------------------------
+    Before any dispute:
+      Juror1: stake= 500 , locked= 0
+      Juror2: stake= 300 , locked= 0
+      Juror3: stake= 200 , locked= 0
+  
+  STEP 2 : Create dispute and draw jurors
+  ------------------------------------------------------------
+  
+  STEP 3 : Verify locked amounts match selection counts
+  ------------------------------------------------------------
+  
+    Juror 1 :
+      Selection count: 2
+      Locked in this dispute: 200 tokens
+      Total locked (global): 200 tokens
+      Expected locked: 200 tokens
+  
+    Juror 2 :
+      Selection count: 1
+      Locked in this dispute: 100 tokens
+      Total locked (global): 100 tokens
+      Expected locked: 100 tokens
+  
+    Total locked across all jurors: 300 tokens
+    Expected (3 draws x 100 minStake): 300 tokens
+  
+  SUCCESS: Stake tracking is correct after multiple selections!
+
+[PASS] testFix_FallbackChecksAvailableNotTotalStake() (gas: 2427413)
+Logs:
+  
+  ============================================================
+  BUG FIX TEST: Fallback Must Check AVAILABLE Stake
+  ============================================================
+  
+    >> ORIGINAL BUG: The fallback in _weightedRandomSelect checked:
+    >>   if (stakes[juror].amount >= minStake)
+    >> This is WRONG because 'amount' is TOTAL stake, not AVAILABLE stake.
+  
+    >> Example of the problem:
+    >>   Juror has 500 tokens staked
+    >>   But 500 tokens are LOCKED in an active dispute
+    >>   Available = 500 - 500 = 0 tokens!
+    >>   Old code would still return this juror (BUG!)
+  
+    >> FIX: Check (amount - lockedAmount) >= minStake
+  
+  STEP 1 : Demonstrate the concept of locked vs available stake
+  ------------------------------------------------------------
+  
+    STAKE TERMINOLOGY:
+    ==================
+    'amount' (total stake) = All tokens you've deposited
+    'lockedAmount' = Tokens frozen in active disputes
+    'available' = amount - lockedAmount = What can be used
+  
+    Example:
+      Alice stakes 500 tokens
+      Gets selected as juror (locks 100)
+      Gets selected again (locks another 100)
+      Total: 500, Locked: 200, Available: 300
+  
+  STEP 2 : Create scenario where juror is fully locked
+  ------------------------------------------------------------
+  
+    Created juror with 100 tokens (exactly minStake)
+    Created backup juror with 300 tokens
+  
+  STEP 3 : First dispute - tightJuror might get selected
+  ------------------------------------------------------------
+    First dispute juror: 0x0000000000000000000000000000000000000701
+    tightJuror: stake= 100 , locked= 0
+    tightJuror available: 100 tokens
+  
+  STEP 4 : Second dispute - system should NOT select fully-locked juror
+  ------------------------------------------------------------
+    Second dispute juror: 0x0000000000000000000000000000000000000700
+  
+  SUCCESS: The fallback correctly checks AVAILABLE stake!
+  Fully-locked jurors are not incorrectly returned.
+
+[PASS] testFix_NoDoSWhenJurorHasInsufficientStake() (gas: 4105548)
+Logs:
+  
+  ============================================================
+  BUG FIX TEST: No DoS When Juror Has Insufficient Stake
+  ============================================================
+  
+    >> ORIGINAL BUG: If a selected juror didn't have enough unlocked stake,
+    >> the entire drawJurors transaction would REVERT.
+    >> An attacker could exploit this to prevent any disputes from being created.
+  
+    >> FIX: Instead of reverting, retry with a different random selection.
+  
+  STEP 1 : Create scenario with mixed stake availability
+  ------------------------------------------------------------
+    Rich juror: 500 tokens staked (can be selected up to 5 times)
+    Poor juror: 100 tokens staked (can only be selected ONCE)
+  
+    If poor juror is selected twice, the second selection should
+    be retried with a new random number (not revert!)
+  
+  STEP 2 : Draw jurors multiple times to stress test
+  ------------------------------------------------------------
+    Completed 5 disputes successfully!
+  
+  SUCCESS: No DoS! The retry mechanism handles insufficient stake.
+
+[PASS] testFix_StaleTotalStakeInDrawLoop() (gas: 2047490)
+Logs:
+  
+  ============================================================
+  BUG FIX TEST: Stale totalStake in Draw Loop
+  ============================================================
+  
+    >> ORIGINAL BUG: totalStake was calculated ONCE at the start of drawJurors.
+    >> As jurors got selected, their lockedAmount increased, reducing available stake.
+    >> But the random target was still based on the OLD totalStake!
+    >> This could cause target > actual cumulative, hitting the fallback.
+  
+    >> FIX: Recalculate totalStake for EACH draw iteration.
+  
+  STEP 1 : Create a scenario with limited stake
+  ------------------------------------------------------------
+    Created juror with 500 tokens staked (exactly 5 x minStake).
+    Initial available stake: 500 tokens
+    After draw 1: 400 tokens available
+    After draw 2: 300 tokens available
+    ... and so on
+  
+    WITHOUT THE FIX: Random target could be 0-499, but actual
+    cumulative drops each iteration. Target 450 with cumulative 300
+    would hit the fallback!
+  
+  STEP 2 : Draw jurors - this should work with the fix
+  ------------------------------------------------------------
+    Total selections made: 5
+    Juror's selection count: 5
+  
+  SUCCESS: The stale totalStake bug is fixed!
+  Each draw correctly recalculates available stake.
+
+[PASS] testGetDisputeSummary() (gas: 164723)
+Logs:
+  
+  ============================================================
+  TEST: Get Dispute Summary
+  ============================================================
+  
+    Created dispute 1
+  
+    DISPUTE STATUS:
+      Phase: Created
+      Ruling: Undecided (Tie)
+      Votes for Option 1: 0
+      Votes for Option 2: 0
+      Total juror selections: 0
+
+[PASS] testGetJurorStake() (gas: 22450)
+Logs:
+  
+  ============================================================
+  TEST: Get Juror Stake Information
+  ============================================================
+  
+    ALICE'S (juror1) STAKE INFO:
+      Total staked: 500 tokens
+      Currently locked: 0 tokens
+      Available to withdraw: 500 tokens
+
+[PASS] testGetTotalSelections() (gas: 449636)
+Logs:
+  
+  ============================================================
+  TEST: Get Total Selections Count
+  ============================================================
+  
+    Before drawing jurors...
+      Total selections: 0
+    After drawing jurors...
+      Total selections: 3
+
+[PASS] testJurorCanBeSelectedMultipleTimes() (gas: 2014404)
+Logs:
+  
+  ============================================================
+  TEST: Same Juror Can Be Selected Multiple Times
+  ============================================================
+  
+    >> Unlike traditional juries, Kleros allows the same person to be picked multiple times.
+    >> Each selection gives them +1 voting power.
+    >> If Alice is picked 3 times, her vote counts as 3 votes!
+  
+  STEP 1 : Create a court with 5 draws and one dominant juror
+  ------------------------------------------------------------
+    Created a juror with 5000 tokens staked (very high!)
+    They should be picked multiple times due to weighted selection.
+  
+  STEP 2 : Create dispute and draw jurors
+  ------------------------------------------------------------
+  
+  STEP 3 : Check how many times the big juror was selected
+  ------------------------------------------------------------
+    Big juror was selected 5 times out of 5 draws!
+    This means their vote counts as 5 votes.
+  
+  SUCCESS: Multi-selection is working!
+
+[PASS] testLoserGetsSlashed() (gas: 2518010)
+Logs:
+  
+  ============================================================
+  TEST: Losing Jurors Get Their Stake Slashed
+  ============================================================
+  
+    >> When you vote against the majority, you LOSE your locked stake.
+    >> This is the 'skin in the game' mechanism that makes jurors vote honestly.
+    >> If you vote wrong, you lose real money!
+  
+  STEP 1 : Set up a court with balanced jurors
+  ------------------------------------------------------------
+    Created 3 jurors, each with 500 tokens staked.
+  
+  STEP 2 : Create dispute and draw jurors
+  ------------------------------------------------------------
+  
+  STEP 3 : Find the juror with lowest voting power (they'll be our loser)
+  ------------------------------------------------------------
+    Juror 1 voting power: 3
+    Juror 2 voting power: 2
+  
+    DESIGNATED LOSER: Juror 2
+    Their stake before dispute: 500 tokens
+    Their locked stake (at risk): 200 tokens
+  
+  STEP 4 : Voting - loser votes differently from everyone else
+  ------------------------------------------------------------
+    Juror 1 (WINNER) votes Option 2
+    Juror 2 (LOSER) votes Option 1
+  
+  STEP 5 : Finalize dispute and check the damage
+  ------------------------------------------------------------
+  
+    LOSER'S FINANCIAL SITUATION:
+      Stake before: 500 tokens
+      Stake after: 300 tokens
+      TOKENS LOST: 200 tokens
+  
+  SUCCESS: The loser was slashed exactly as expected!
+  Their lost tokens were redistributed to the winning jurors.
+
+[PASS] testMajorityWinsAndGetsReward() (gas: 660814)
+Logs:
+  
+  ============================================================
+  TEST: Majority Wins and Gets Rewards
+  ============================================================
+  
+    >> This is how Kleros dispute resolution works:
+    >> 1. Jurors vote on Option 1 or Option 2
+    >> 2. The option with more voting weight wins
+    >> 3. Losing jurors have their stake taken and given to winners
+  
+  STEP 1 : Create a dispute and draw jurors
+  ------------------------------------------------------------
+    Number of unique jurors selected: 2
+  
+  STEP 2 : Check who was selected and their voting power
+  ------------------------------------------------------------
+    Juror 1 voting power: 2
+    Juror 2 voting power: 1
+    Total voting power: 3
+  
+  STEP 3 : Set up voting - minority vs majority
+  ------------------------------------------------------------
+    Minority juror (votes Option 2): voting power = 1
+    Majority jurors (vote Option 1): voting power = 2
+  
+  STEP 4 : COMMIT PHASE - Jurors submit encrypted votes
+  ------------------------------------------------------------
+    (Votes are hidden during this phase - no one can see how others voted)
+    Juror 1 committed a hidden vote (will be Option 1)
+    Juror 2 committed a hidden vote (will be Option 2)
+  
+  STEP 5 : Time passes... waiting for commit deadline
+  ------------------------------------------------------------
+    90 minutes have passed. Commit phase is over.
+  
+  STEP 6 : REVEAL PHASE - Jurors reveal their votes
+  ------------------------------------------------------------
+    Now everyone reveals what they actually voted for.
+    Juror 1 revealed: OPTION 1
+    Juror 2 revealed: OPTION 2
+  
+  STEP 7 : Time passes... waiting for reveal deadline
+  ------------------------------------------------------------
+    1 hour has passed. Reveal phase is over.
+  
+  STEP 8 : FINALIZE - Count votes and determine winner
+  ------------------------------------------------------------
+  
+    FINAL VOTE COUNT:
+      Option 1: 2 votes
+      Option 2: 1 votes
+  
+    RULING: Option 1 Wins
+  
+  SUCCESS: The majority won as expected!
+  The minority juror will have their stake slashed and given to winners.
+
+[PASS] testNonJurorCannotCommit() (gas: 457734)
+Logs:
+  
+  ============================================================
+  TEST: Non-Jurors Cannot Vote
+  ============================================================
+  
+    >> Only selected jurors can participate in voting.
+    >> Random people off the street can't just walk in and vote!
+    A random person (not a selected juror) tries to vote...
+    BLOCKED! Only selected jurors can vote.
+  
+  SUCCESS: Non-jurors are prevented from voting!
+
+[PASS] testNonJurorCannotReveal() (gas: 511589)
+Logs:
+  
+  ============================================================
+  TEST: Non-Jurors Cannot Reveal Votes
+  ============================================================
+  
+    Random person tries to reveal during reveal phase...
+    BLOCKED! Only selected jurors can reveal.
+  
+  SUCCESS: Non-jurors cannot interfere with the reveal phase!
+
+[PASS] testNonRevealerLosesStake() (gas: 2476066)
+Logs:
+  
+  ============================================================
+  TEST: Not Revealing Your Vote = Automatic Loss
+  ============================================================
+  
+    >> If you commit a vote but don't reveal it, you're treated as a LOSER.
+    >> This prevents jurors from 'sitting on the fence' and waiting to see how others vote.
+    >> You MUST reveal your vote, or you lose your stake!
+  
+  STEP 1 : Set up court with multiple jurors
+  ------------------------------------------------------------
+  
+  STEP 2 : Create dispute and draw jurors
+  ------------------------------------------------------------
+    Selected 2 unique jurors.
+  
+  STEP 3 : ALL jurors commit their votes
+  ------------------------------------------------------------
+    Juror 1 committed a vote
+    Juror 2 committed a vote
+  
+  STEP 4 : Only the FIRST juror reveals - others stay silent!
+  ------------------------------------------------------------
+    Juror 1 revealed their vote: OPTION 1
+    Juror 2 DID NOT REVEAL (stayed silent)
+  
+  STEP 5 : Finalize and see the consequences
+  ------------------------------------------------------------
+  
+    RESULTS:
+  
+    Juror 1 (REVEALED):
+      Stake before: 500 tokens
+      Stake after: 700 tokens
+      RESULT: GAINED 200 tokens!
+  
+    Juror 2 (DID NOT REVEAL):
+      Stake before: 500 tokens
+      Stake after: 300 tokens
+      RESULT: LOST 200 tokens!
+  
+  SUCCESS: Non-revealers were punished and their stake went to the revealer!
+
+[PASS] testNumDrawsMustBeOdd() (gas: 52035)
+Logs:
+  
+  ============================================================
+  TEST: Number of Draws Must Be Odd
+  ============================================================
+  
+    >> Why odd? To prevent ties! With odd jurors, there's always a majority.
+    >> For example: 3 jurors means you need 2+ to win. Never a 1.5 vs 1.5 situation.
+  
+  Trying to create a court with 4 draws (even number)...
+  RESULT: Transaction was rejected as expected!
+  The system correctly prevents even numbers of draws.
+
+[PASS] testNumDrawsMustBePositive() (gas: 51723)
+Logs:
+  
+  ============================================================
+  TEST: Number of Draws Must Be Greater Than Zero
+  ============================================================
+  
+    >> You can't have a court with zero jurors!
+    >> At least 1 juror is needed to make a decision.
+  
+  Trying to create a court with 0 draws...
+  RESULT: Transaction was rejected as expected!
+
+[PASS] testStakeLockedIsMinStakeTimesSelections() (gas: 475806)
+Logs:
+  
+  ============================================================
+  TEST: Stake Locked = Minimum Stake x Selection Count
+  ============================================================
+  
+    >> When you're selected as a juror, some of your stake gets locked.
+    >> You can't withdraw locked stake until the dispute is resolved.
+    >> Formula: Locked Amount = 100 tokens x (number of times selected)
+  
+  STEP 1 : Create dispute and draw jurors
+  ------------------------------------------------------------
+  
+  STEP 2 : Check each juror's locked stake
+  ------------------------------------------------------------
+    Minimum stake per selection: 100 tokens
+  
+    Juror 1 :
+      - Selected 2 time(s)
+      - Expected locked: 200 tokens
+      - Actual locked: 200 tokens
+    Juror 2 :
+      - Selected 1 time(s)
+      - Expected locked: 100 tokens
+      - Actual locked: 100 tokens
+  
+  SUCCESS: Stake locking formula is correct!
+
+[PASS] testTieNoRedistribution() (gas: 2097249)
+Logs:
+  
+  ============================================================
+  TEST: Tie Scenario - Single Juror Case
+  ============================================================
+  
+    >> When there's only one unique juror (same person picked for all slots),
+    >> they're the only voter, so whatever they vote wins.
+    Created court with 1 draw and 1 juror.
+  
+  STEP 1 : Create dispute and draw jurors
+  ------------------------------------------------------------
+    Selected 1 unique juror(s).
+  
+  STEP 2 : Single juror votes Option 1
+  ------------------------------------------------------------
+    Juror committed vote...
+    Juror revealed: OPTION 1
+  
+  STEP 3 : Check the outcome
+  ------------------------------------------------------------
+  
+    Votes for Option 1: 1
+    Votes for Option 2: 0
+    RULING: Option 1 Wins
+  
+  SUCCESS: Single juror's vote decided the outcome!
+
+[PASS] testTieResultsInUndecided() (gas: 503153)
+Logs:
+  
+  ============================================================
+  TEST: True Tie - No One Reveals Their Vote
+  ============================================================
+  
+    >> If NO ONE reveals their vote, the result is 0 vs 0 = TIE!
+    >> In a tie, the ruling is 'Undecided' and no stake is redistributed.
+    >> Everyone just gets their stake back.
+  
+  STEP 1 : Create dispute and draw jurors
+  ------------------------------------------------------------
+    Selected 2 unique juror(s).
+  
+  STEP 2 : All jurors commit votes
+  ------------------------------------------------------------
+    Juror 1 committed a vote
+    Juror 2 committed a vote
+  
+  STEP 3 : TIME PASSES... but NO ONE REVEALS!
+  ------------------------------------------------------------
+    Commit phase ends...
+    Reveal phase ends...
+    NO JUROR REVEALED THEIR VOTE!
+  
+  STEP 4 : Finalize the dispute
+  ------------------------------------------------------------
+  
+    FINAL COUNT:
+      Votes for Option 1: 0
+      Votes for Option 2: 0
+  
+    RULING: Undecided (Tie)
+  
+  SUCCESS: With 0 vs 0 votes, the result is correctly Undecided!
+
+[PASS] testTotalSelectionsEqualsNumDraws() (gas: 467435)
+Logs:
+  
+  ============================================================
+  TEST: Total Selections Should Equal Number of Draws
+  ============================================================
+  
+    >> When we draw jurors, we perform exactly 'numDraws' random selections.
+    >> Each selection picks one juror (possibly the same juror multiple times).
+  
+  STEP 1 : Create a new dispute
+  ------------------------------------------------------------
+    Dispute ID: 1
+  
+  STEP 2 : Draw jurors for this dispute
+  ------------------------------------------------------------
+    Performing 3 random draws...
+  
+  STEP 3 : Verify total selections
+  ------------------------------------------------------------
+    Expected selections: 3
+    Actual selections: 3
+  
+  SUCCESS: The system performed exactly 3 selections!
+
+[PASS] testWeightedSelectionFavorsHigherStakes() (gas: 6276358)
+Logs:
+  
+  ============================================================
+  TEST: Higher Stake = Higher Selection Probability
+  ============================================================
+  
+    >> This is the KEY feature of Kleros:
+    >> If you stake MORE tokens, you're MORE LIKELY to be selected as a juror.
+    >> It's like having more lottery tickets - more tickets = better odds.
+  
+  Our jurors and their stakes:
+    - Alice (juror1): 500 tokens (50% of total)
+    - Bob (juror2): 300 tokens (30% of total)
+    - Charlie (juror3): 200 tokens (20% of total)
+  
+  STEP 1 : Run 10 disputes and count selections
+  ------------------------------------------------------------
+    We'll create 10 disputes with 3 draws each = 30 total selections.
+    Let's see how often each juror gets picked...
+  
+  STEP 2 : Results after 30 total selections
+  ------------------------------------------------------------
+  
+    ALICE (500 stake / 50%):
+      Selected 13 times
+  
+    BOB (300 stake / 30%):
+      Selected 11 times
+  
+    CHARLIE (200 stake / 20%):
+      Selected 6 times
+  
+  OBSERVATION: Alice (highest stake) should have the most selections.
+               Charlie (lowest stake) should have the fewest.
+               The weighted random selection is working as designed!
+
+Suite result: ok. 35 passed; 0 failed; 0 skipped; finished in 7.14ms (17.55ms CPU time)
+
+Ran 1 test suite in 89.20ms (7.14ms CPU time): 35 tests passed, 0 failed, 0 skipped (35 total tests)

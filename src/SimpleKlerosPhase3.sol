@@ -460,9 +460,16 @@ contract SimpleKlerosPhase3 {
             }
         }
         
-        // Fallback: return first juror with stake (shouldn't happen)
+        // Fallback: return first juror with AVAILABLE stake (shouldn't happen with fresh totalStake)
+        // CRITICAL: Must check available stake, not just total stake!
+        // A juror might have 500 staked but 500 locked = 0 available
         for (uint256 i = 0; i < jurorList.length; i++) {
-            if (stakes[jurorList[i]].amount >= minStake) {
+            JurorStake storage jsFallback = stakes[jurorList[i]];
+            uint256 availableFallback = 0;
+            if (jsFallback.amount > jsFallback.lockedAmount) {
+                availableFallback = jsFallback.amount - jsFallback.lockedAmount;
+            }
+            if (availableFallback >= minStake) {
                 return jurorList[i];
             }
         }

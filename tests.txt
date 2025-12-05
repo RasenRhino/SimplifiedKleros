@@ -1,0 +1,4 @@
+RANDOM_SEED=12345 forge test --match-test "testWeightedSelectionWithMultipleRandomSeeds" -vvv
+forge test --match-test "testMajorityWinsAndGetsReward" -vvv
+forge test --match-test "testLoserGetsSlashed" -vvv
+forge test --match-test "testNonRevealerLosesStake" -vvv
