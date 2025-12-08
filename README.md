@@ -1,12 +1,85 @@
 # Kleros Dispute Resolution - Phased Implementation
 
-## How to Run
+## Quick Start
+
+### Option 1: Run with Docker 
 
 ```bash
-# Install Foundry if not already installed
+
+# Run only the 4 core demonstration tests
+docker-compose run core-tests
+
+# Run all tests (37 tests)
+docker-compose run tests
+
+
+# Run with random seed (different results each time) , ONLY used for random juror selection test if you want to give your own random seed. Fuzz testing command mentioned below.
+RANDOM_SEED=$RANDOM docker-compose run core-tests
+
+# Run all tests with maximum verbosity , helpful if you want to see gas fees and nuanced transaction data. Currently out of the purview of our implementaion
+docker-compose run all-verbose
+
+# Run fuzz tests (256 iterations) , ONLY used for random juror selection test. 
+docker-compose run fuzz-tests
+
+```
+
+### Option 2: Run Locally (Requires Foundry)
+
+```bash
+# Install Foundry
 curl -L https://foundry.paradigm.xyz | bash
 foundryup
 
+# Run all tests
+forge test -vv
+
+# Run core tests script
+chmod +x run_core_tests.sh
+./run_core_tests.sh
+
+# Run with random seed
+RANDOM_SEED=$RANDOM ./run_core_tests.sh
+```
+
+---
+
+## Core Tests (4 Key Demonstrations)
+
+These 4 tests demonstrate the essential functionality of the Kleros dispute system:
+
+| # | Test | What It Demonstrates |
+|---|------|----------------------|
+| 1 | `testWeightedSelectionWithMultipleRandomSeeds` | Higher stake = higher chance of being selected as juror |
+| 2 | `testMajorityWinsAndGetsReward` | Majority voters win and receive slashed stake from losers |
+| 3 | `testLoserGetsSlashed` | Minority voters lose their locked stake |
+| 4 | `testNonRevealerLosesStake` | Jurors who don't reveal their vote automatically lose |
+
+### Run Core Tests Only
+
+**With Docker:**
+```bash
+docker-compose run core-tests
+```
+
+**Locally:**
+```bash
+./run_core_tests.sh
+
+# Or manually:
+forge test --match-test "testWeightedSelectionWithMultipleRandomSeeds" -vvv
+forge test --match-test "testMajorityWinsAndGetsReward" -vvv
+forge test --match-test "testLoserGetsSlashed" -vvv
+forge test --match-test "testNonRevealerLosesStake" -vvv
+```
+
+---
+
+## All Test Commands
+
+### Local Commands (Requires Foundry)
+
+```bash
 # Run all tests
 forge test -vv
 
@@ -29,26 +102,62 @@ RANDOM_SEED=12345 forge test --match-test "testWeightedSelectionWithMultipleRand
 forge test --match-test "testFuzz_" -vv
 ```
 
+### Docker Commands (No Installation Required)
+
+```bash
+# Build the Docker image (done automatically on first run)
+docker-compose build
+
+# Run all tests (37 tests)
+docker-compose run tests
+
+# Run core tests only (4 key demonstrations)
+docker-compose run core-tests
+
+# Run with random seed (different results each time)
+RANDOM_SEED=$RANDOM docker-compose run core-tests
+
+# Run all tests with maximum verbosity
+docker-compose run all-verbose
+
+# Run fuzz tests (256 iterations)
+docker-compose run fuzz-tests
+
+# Run Phase 3 tests only
+docker-compose run phase3-tests
+```
+
+### Rebuild & Cleanup Commands
+
+```bash
+# Force rebuild (use after code changes)
+docker-compose build --no-cache
+
+# Rebuild specific service
+docker-compose build --no-cache tests
+
+# Remove all containers
+docker-compose down
+
+# Remove containers + images (full cleanup)
+docker-compose down --rmi all
+
+# Remove containers + images + volumes (complete reset)
+docker-compose down --rmi all --volumes
+
+# Remove orphan containers
+docker-compose down --remove-orphans
+
+# View running containers
+docker-compose ps
+
+# View logs
+docker-compose logs
+```
+
 ---
 
-## Phase 3: SimpleKlerosPhase3
 
-### What Is It?
-
-A decentralized court where jurors stake tokens, vote on disputes, and either **win money** (if they vote with majority) or **lose everything** (if they vote with minority).
-
-### Key Features
-
-| Feature | Description |
-|---------|-------------|
-| **Weighted Random Selection** | Higher stake = higher chance of being selected as juror |
-| **Multi-Selection** | Same juror can be picked multiple times (each pick = +1 voting power) |
-| **Odd Number of Draws** | Always odd (3, 5, 7...) to prevent ties |
-| **Stake Locking** | Each selection locks `minStake` tokens until dispute resolves |
-| **Commit-Reveal Voting** | Secret votes prevent copying others |
-| **Stake Redistribution** | Losers are slashed, winners gain proportionally |
-
----
 
 ### The Flow
 
@@ -64,7 +173,7 @@ Total: 1000 tokens in the pool
 ```
 
 #### 2. Create Dispute
-Anyone creates a dispute with evidence (IPFS link).
+Anyone creates a dispute with evidence 
 
 #### 3. Draw Jurors (Weighted Random)
 Contract performs N random draws (N must be odd, e.g., 3).
@@ -121,115 +230,17 @@ Bob: 300 - 100 = 200 tokens
 
 ---
 
-### Key Rules
-
-| Rule | Why |
-|------|-----|
-| **Commit-reveal** | Prevents copying others' votes |
-| **Weighted selection** | Higher stake = more skin in the game |
-| **Multi-selection** | Natural weighting without complex math |
-| **Odd draws only** | Prevents ties in voting |
-| **Locked during dispute** | Can't withdraw while voting |
-| **Non-revealers lose** | Forces participation |
-| **Recalculate stake each draw** | Prevents stale stake bugs |
-
----
-
-### The Economic Logic
-
-```
-"I think others will vote for the obvious truth"
-        ↓
-"If I vote the same, I'm in the majority"
-        ↓
-"I'll take money from the minority"
-        ↓
-Everyone votes honestly → System finds truth
-```
-
-That's the **Kleros loop** — economic self-interest drives honest behavior.
-
----
-
-## Bug Fixes Implemented
-
-Three critical bugs were identified and fixed in `SimpleKlerosPhase3`:
-
-### Bug 1: Stale `totalStake` in Draw Loop
-**Problem:** `totalStake` was calculated once before the loop, but each selection locks tokens, reducing available stake.
-```
-Draw 1: target = rand % 1000 → selects juror, locks 100
-Draw 2: target = rand % 1000 → but actual available is now 900!
-        target could be 950 → can't reach → falls to FALLBACK
-```
-**Fix:** Recalculate `currentTotalStake = _getTotalStake()` at the start of each draw iteration.
-
-### Bug 2: DoS on Insufficient Stake
-**Problem:** If a selected juror didn't have enough stake, the entire transaction reverted.
-```solidity
-require(js.amount >= js.lockedAmount + minStake, "insufficient"); // ← Reverts!
-```
-**Fix:** Added retry mechanism with `nonce` and `maxRetries`. If a juror can't be selected, try again with a different random value.
-
-### Bug 3: Fallback Checks Total Instead of Available
-**Problem:** Fallback returned the first juror with sufficient **total** stake, but they might have it all locked.
-```solidity
-if (stakes[jurorList[i]].amount >= minStake) { // Wrong! Checks total
-    return jurorList[i];
-}
-```
-**Fix:** Check available stake: `if (availableFallback >= minStake)`.
-
----
-
-## Test Results
-
-```
-Ran 37 tests for test/SimpleKlerosPhase3Test.t.sol:SimpleKlerosPhase3Test
-[PASS] testCanUnstakeAfterDispute() (gas: 621354)
-[PASS] testCannotCommitAfterDeadline() (gas: 459278)
-[PASS] testCannotCommitTwice() (gas: 489529)
-[PASS] testCannotDrawJurorsTwice() (gas: 454596)
-[PASS] testCannotFinalizeBeforeRevealDeadline() (gas: 587737)
-[PASS] testCannotRevealAfterDeadline() (gas: 484567)
-[PASS] testCannotRevealBeforeCommitDeadline() (gas: 485431)
-[PASS] testCannotRevealInvalidVoteValue() (gas: 482701)
-[PASS] testCannotRevealTwice() (gas: 536865)
-[PASS] testCannotRevealWithWrongSalt() (gas: 494080)
-[PASS] testCannotRevealWithWrongVote() (gas: 491979)
-[PASS] testCannotStakeBelowMinimum() (gas: 140806)
-[PASS] testCannotStakeZero() (gas: 20552)
-[PASS] testCannotUnstakeMoreThanAvailable() (gas: 587237)
-[PASS] testCannotUnstakeWhileLocked() (gas: 462017)
-[PASS] testFix_CorrectTotalStakeAfterMultipleSelections() (gas: 499059)
-[PASS] testFix_FallbackChecksAvailableNotTotalStake() (gas: 2427413)
-[PASS] testFix_NoDoSWhenJurorHasInsufficientStake() (gas: 4105592)
-[PASS] testFix_StaleTotalStakeInDrawLoop() (gas: 2047512)
-[PASS] testFuzz_WeightedSelectionFavorsHigherStakes(uint256) (runs: 256)
-[PASS] testGetDisputeSummary() (gas: 164745)
-[PASS] testGetJurorStake() (gas: 22450)
-[PASS] testGetTotalSelections() (gas: 449658)
-[PASS] testJurorCanBeSelectedMultipleTimes() (gas: 2014404)
-[PASS] testLoserGetsSlashed() (gas: 2518032)
-[PASS] testMajorityWinsAndGetsReward() (gas: 660814)
-[PASS] testNonJurorCannotCommit() (gas: 457756)
-[PASS] testNonJurorCannotReveal() (gas: 511611)
-[PASS] testNonRevealerLosesStake() (gas: 2476088)
-[PASS] testNumDrawsMustBeOdd() (gas: 52057)
-[PASS] testNumDrawsMustBePositive() (gas: 51767)
-[PASS] testStakeLockedIsMinStakeTimesSelections() (gas: 475850)
-[PASS] testTieNoRedistribution() (gas: 2097271)
-[PASS] testTieResultsInUndecided() (gas: 503175)
-[PASS] testTotalSelectionsEqualsNumDraws() (gas: 467457)
-[PASS] testWeightedSelectionFavorsHigherStakes() (gas: 6263945)
-[PASS] testWeightedSelectionWithMultipleRandomSeeds() (gas: 15534933)
-
-Suite result: ok. 37 passed; 0 failed; 0 skipped
-```
-
----
 
 ## Test Categories
+
+### Core Demonstration Tests (4 tests) 
+
+| Test | What It Demonstrates |
+|------|----------------------|
+| `testWeightedSelectionWithMultipleRandomSeeds` | Weighted random juror selection |
+| `testMajorityWinsAndGetsReward` | Majority wins, gets slashed stake |
+| `testLoserGetsSlashed` | Minority loses their stake |
+| `testNonRevealerLosesStake` | Not revealing = automatic loss |
 
 ### Core Functionality Tests (5 tests)
 
@@ -245,9 +256,24 @@ Suite result: ok. 37 passed; 0 failed; 0 skipped
 
 | Test | What It Checks |
 |------|----------------|
-| `testWeightedSelectionFavorsHigherStakes` | Higher stake jurors selected more often (deterministic) |
+| `testWeightedSelectionFavorsHigherStakes` | Deterministic - uses fixed block number each time for reproducibility |
 | `testWeightedSelectionWithMultipleRandomSeeds` | Shows varying results with external random seeds |
-| `testFuzz_WeightedSelectionFavorsHigherStakes` | Fuzz test - runs 256 times with random seeds |
+| `testFuzz_WeightedSelectionFavorsHigherStakes(uint256 seed)` | **Fuzz test** - runs 256 times with random seeds |
+
+#### Fuzz Testing
+
+The function `testFuzz_WeightedSelectionFavorsHigherStakes(uint256 seed)` is a **fuzz test**. Foundry automatically:
+- Runs it **256 times** (default)
+- Provides a **different random `seed`** each run
+- Tests that weighted selection works correctly across many random scenarios
+
+```bash
+# Run fuzz tests
+forge test --match-test "testFuzz_" -vv
+
+# Output shows 256 runs:
+# [PASS] testFuzz_WeightedSelectionFavorsHigherStakes(uint256) (runs: 256)
+```
 
 **Running with Different Seeds:**
 ```bash
@@ -321,32 +347,23 @@ RANDOM_SEED=$RANDOM forge test --match-test "testWeightedSelectionWithMultipleRa
 
 ---
 
-## Known Limitations
-
-| Issue | Description |
-|-------|-------------|
-| **Confidence Attack** | If stake > minStake, wealthy jurors can overwhelm votes |
-| **Whale Manipulation** | Large token holders can dominate juror selection |
-| **No Hedging** | All eggs in one basket even with multiple selections |
-| **Rounding Errors** | Some edge cases have minor rounding issues |
-| **No Concurrent Disputes** | Only one dispute at a time per juror |
-| **No Appeals** | Next step should be to implement appeals |
-
----
-
 ## File Structure
 
 ```
-src/
-├── SimpleKlerosPhase1.sol   # Basic staking & commit-reveal
-├── SimpleKlerosPhase2.sol   # Added juror selection
-├── SimpleKlerosPhase3.sol   # Full weighted selection & multi-select
-└── TestToken.sol            # Mock ERC20 for testing
-
-test/
-├── SimpleKlerosPhase1Test.t.sol
-├── SimpleKlerosPhase2Test.t.sol
-└── SimpleKlerosPhase3Test.t.sol   # 37 tests
+├── Dockerfile              # Docker image for running tests
+├── docker-compose.yml      # Docker services for different test modes
+├── run_core_tests.sh       # Script to run 4 core tests locally
+├── foundry.toml            # Foundry configuration
+│
+├── src/
+│   ├── SimpleKlerosPhase3.sol   # Full weighted selection & multi-select
+│   └── TestToken.sol            # Mock ERC20 for testing
+│
+├── test/
+│   └── SimpleKlerosPhase3Test.t.sol   # 37 tests
+│
+└── lib/
+    └── forge-std/               # Foundry standard library
 ```
 
 ---

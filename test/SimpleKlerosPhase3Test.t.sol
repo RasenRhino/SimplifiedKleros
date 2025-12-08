@@ -6,23 +6,7 @@ import "forge-std/console2.sol";
 import "../src/TestToken.sol";
 import "../src/SimpleKlerosPhase3.sol";
 
-/**
- * @title SimpleKlerosPhase3Test
- * @notice Comprehensive test suite for the Kleros dispute resolution system
- * 
- * WHAT IS KLEROS?
- * ---------------
- * Kleros is a decentralized court system. When two parties have a dispute,
- * random jurors are selected to vote on the outcome. The majority wins,
- * and losers have their staked tokens taken away and given to winners.
- * 
- * KEY CONCEPTS:
- * - STAKE: Tokens you lock up to become eligible as a juror
- * - WEIGHTED SELECTION: The more you stake, the higher chance of being picked
- * - MULTI-SELECTION: Same juror can be picked multiple times (more voting power)
- * - COMMIT-REVEAL: Jurors first submit encrypted votes, then reveal them
- * - SLASHING: Losing jurors lose their staked tokens to winners
- */
+
 contract SimpleKlerosPhase3Test is Test {
     TestToken token;
     SimpleKlerosPhase3 kleros;
@@ -407,7 +391,7 @@ contract SimpleKlerosPhase3Test is Test {
         console2.log("Run again with different RANDOM_SEED to see different results!");
     }
     
-    /// @notice Deterministic version for CI/reproducibility
+    /// @notice Deterministic version , here we use a fixed block size  
     function testWeightedSelectionFavorsHigherStakes() public {
         _header("TEST: Higher Stake = Higher Selection Probability (Deterministic)");
         
@@ -882,7 +866,17 @@ contract SimpleKlerosPhase3Test is Test {
         address[] memory jurors = kleros.getJurors(id);
         console2.log("  Selected", jurors.length, "unique juror(s).");
 
-        _step(2, "All jurors commit votes");
+        _step(2, "Record stakes BEFORE finalization");
+        uint256[] memory stakesBefore = new uint256[](jurors.length);
+        uint256[] memory lockedBefore = new uint256[](jurors.length);
+        for (uint256 i = 0; i < jurors.length; i++) {
+            (stakesBefore[i], lockedBefore[i]) = kleros.getJurorStake(jurors[i]);
+            console2.log("  Juror", i + 1);
+            console2.log("    Stake:", stakesBefore[i] / 1 ether, "ether");
+            console2.log("    Locked:", lockedBefore[i] / 1 ether, "ether");
+        }
+
+        _step(3, "All jurors commit votes");
         bytes32 salt = keccak256("salt");
         for (uint256 i = 0; i < jurors.length; i++) {
             vm.prank(jurors[i]);
@@ -890,14 +884,14 @@ contract SimpleKlerosPhase3Test is Test {
             console2.log("  Juror", i + 1, "committed a vote");
         }
 
-        _step(3, "TIME PASSES... but NO ONE REVEALS!");
+        _step(4, "TIME PASSES... but NO ONE REVEALS!");
         console2.log("  Commit phase ends...");
         console2.log("  Reveal phase ends...");
         console2.log("  NO JUROR REVEALED THEIR VOTE!");
         
         vm.warp(block.timestamp + 3 hours);
         
-        _step(4, "Finalize the dispute");
+        _step(5, "Finalize the dispute");
         kleros.finalize(id);
 
         (, SimpleKlerosPhase3.Ruling ruling, uint256 v1, uint256 v2,) = kleros.getDisputeSummary(id);
@@ -912,9 +906,22 @@ contract SimpleKlerosPhase3Test is Test {
         assertEq(v1, 0, "No Option 1 votes since no one revealed");
         assertEq(v2, 0, "No Option 2 votes since no one revealed");
         assertEq(uint256(ruling), uint256(SimpleKlerosPhase3.Ruling.Undecided));
+
+        _step(6, "Verify stakes AFTER finalization - everyone gets their stake back!");
+        for (uint256 i = 0; i < jurors.length; i++) {
+            (uint256 stakeAfter, uint256 lockedAfter) = kleros.getJurorStake(jurors[i]);
+            console2.log("  Juror", i + 1);
+            console2.log("    Stake:", stakeAfter / 1 ether, "ether");
+            console2.log("    Locked:", lockedAfter / 1 ether, "ether");
+            
+            // Stake should be unchanged (no slashing in a tie)
+            assertEq(stakeAfter, stakesBefore[i], "Stake should be unchanged in a tie");
+            // Locked should be 0 (all unlocked)
+            assertEq(lockedAfter, 0, "Locked should be 0 after tie resolution");
+        }
         
         console2.log("");
-        console2.log("SUCCESS: With 0 vs 0 votes, the result is correctly Undecided!");
+        console2.log("SUCCESS: With 0 vs 0 votes, the result is Undecided and all stakes are returned!");
     }
 
     function testCanUnstakeAfterDispute() public {
@@ -1543,9 +1550,9 @@ contract SimpleKlerosPhase3Test is Test {
     }
 
     function testFix_NoDoSWhenJurorHasInsufficientStake() public {
-        _header("BUG FIX TEST: No DoS When Juror Has Insufficient Stake");
+        _header("TEST: No DoS When Juror Has Insufficient Stake");
         
-        _explain("ORIGINAL BUG: If a selected juror didn't have enough unlocked stake,");
+        _explain("Earlier version of the code had a bug: If a selected juror didn't have enough unlocked stake,");
         _explain("the entire drawJurors transaction would REVERT.");
         _explain("An attacker could exploit this to prevent any disputes from being created.");
         console2.log("");
@@ -1626,7 +1633,7 @@ contract SimpleKlerosPhase3Test is Test {
     }
 
     function testFix_CorrectTotalStakeAfterMultipleSelections() public {
-        _header("BUG FIX TEST: Correct Available Stake Tracking");
+        _header("Correct Available Stake Tracking");
         
         _explain("This test verifies that available stake is correctly tracked");
         _explain("as jurors get selected multiple times within a single drawJurors call.");
@@ -1675,7 +1682,7 @@ contract SimpleKlerosPhase3Test is Test {
     }
 
     function testFix_FallbackChecksAvailableNotTotalStake() public {
-        _header("BUG FIX TEST: Fallback Must Check AVAILABLE Stake");
+        _header("Fallback Must Check AVAILABLE Stake");
         
         _explain("ORIGINAL BUG: The fallback in _weightedRandomSelect checked:");
         _explain("  if (stakes[juror].amount >= minStake)");

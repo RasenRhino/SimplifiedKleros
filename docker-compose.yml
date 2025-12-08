@@ -1,0 +1,61 @@
+# ============================================
+# SimpleKleros - Docker Compose
+# ============================================
+# Run tests without installing Foundry locally.
+#
+# Usage:
+#   docker-compose up              # Run all tests
+#   docker-compose run core-tests  # Run 4 core tests only
+#   docker-compose run all-verbose # Run all with detailed logs
+#   docker-compose run fuzz-tests  # Run fuzz tests (256 iterations)
+# ============================================
+
+services:
+  # Default: Run all tests
+  tests:
+    build: .
+    # Uses default CMD from Dockerfile: forge test -vv
+
+  # Run only the 4 core demonstration tests
+  core-tests:
+    build: .
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        echo '============================================'
+        echo '  SimpleKleros - Core Tests (Docker)'
+        echo '============================================'
+        echo ''
+        echo 'TEST 1: Weighted Selection'
+        forge test --match-test testWeightedSelectionWithMultipleRandomSeeds -vvv
+        echo ''
+        echo 'TEST 2: Majority Wins'
+        forge test --match-test testMajorityWinsAndGetsReward -vvv
+        echo ''
+        echo 'TEST 3: Loser Gets Slashed'
+        forge test --match-test testLoserGetsSlashed -vvv
+        echo ''
+        echo 'TEST 4: Non-Revealer Loses'
+        forge test --match-test testNonRevealerLosesStake -vvv
+        echo ''
+        echo '============================================'
+        echo '  All Core Tests Completed!'
+        echo '============================================'
+    environment:
+      - RANDOM_SEED=${RANDOM_SEED:-12345}
+
+  # Run all tests with maximum verbosity
+  all-verbose:
+    build: .
+    command: ["test", "-vvvv"]
+
+  # Run fuzz tests (256 iterations each)
+  fuzz-tests:
+    build: .
+    command: ["test", "--match-test", "testFuzz_", "-vv"]
+
+  # Run Phase 3 tests only
+  phase3-tests:
+    build: .
+    command: ["test", "--match-path", "test/SimpleKlerosPhase3Test.t.sol", "-vv"]
