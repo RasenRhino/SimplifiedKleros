@@ -210,7 +210,7 @@ P(\text{Any of User A's addresses selected})
 $$
 
 
-**Conclusion:** The probability of selection remains exactly $$ \( \frac{S_A}{S_{\text{total}}} \) $$ regardless of whether the stake \( S_A \) is held in one address or split across \( k \) addresses. Splitting tokens increases the computational overhead (gas costs) for the attacker without providing any statistical advantage in being selected. This mathematical property underpins the Sybil resistance of the protocol and is empirically illustrated in the weighted-selection tests described above.
+**Conclusion:** The probability of selection remains exactly $\frac{S_A}{S_{\text{total}}}$ regardless of whether the stake $S_A$ is held in one address or split across $k$ addresses. Splitting tokens increases the computational overhead (gas costs) for the attacker without providing any statistical advantage in being selected. This mathematical property underpins the Sybil resistance of the protocol and is empirically illustrated in the weighted-selection tests described above.
 
 ---
 
