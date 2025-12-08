@@ -4,7 +4,7 @@
 **Course:** Distributed Systems  
 **Institution:** Northeastern University
 
-📖 **[View README](README.md)** - Quick start guide and test commands
+**[View README](README.md)** - Quick start guide and test commands
 
 ---
 
