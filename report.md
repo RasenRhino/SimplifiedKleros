@@ -58,6 +58,7 @@ Everyone votes honestly → System finds truth
 
 That's the **Kleros loop** — economic self-interest drives honest behavior.
 
+---
 
 ## 3. Architecture and Design
 
@@ -127,6 +128,8 @@ stateDiagram-v2
 A critical component of the design is Sybil resistance. In Kleros, the probability of being drawn as a juror is proportional to the amount of tokens staked.
 
 In our `SimpleKlerosPhase3` implementation, we utilized a linear weighted random selection algorithm. The simplified logic iterates through the list of jurors, summing their "available" stake (total stake minus locked stake) to determine selection probability. This ensures that a juror cannot be selected more times than their stake allows, a critical fix we identified during testing to prevent Denial of Service (DoS) scenarios (see `testFix_StaleTotalStakeInDrawLoop`, `testFix_CorrectTotalStakeAfterMultipleSelections`, and `testFix_NoDoSWhenJurorHasInsufficientStake`).
+
+---
 
 ## 4. Achievements and Implementation Details
 
@@ -203,6 +206,8 @@ $$
 
 **Conclusion:** The probability of selection remains exactly \( \frac{S_A}{S_{\text{total}}} \) regardless of whether the stake \( S_A \) is held in one address or split across \( k \) addresses. Splitting tokens increases the computational overhead (gas costs) for the attacker without providing any statistical advantage in being selected. This mathematical property underpins the Sybil resistance of the protocol and is empirically illustrated in the weighted-selection tests described above.
 
+---
+
 ## 5. Gap Analysis
 
 By simplifying the protocol, we exposed several pitfalls and deviations from the full Kleros specification (v1).
@@ -271,7 +276,6 @@ By simplifying the protocol, we exposed several pitfalls and deviations from the
 
 Since we have no **Governance Treasury** , we just revert the stake. The key behaviors around ties and “everyone silent” cases are exercised in `testTieNoRedistribution` (single-juror / trivial tie handling) and `testTieResultsInUndecided` (0 vs 0 votes → Undecided with all stakes returned).
 
----
 
 ### Why This Matters
 
@@ -282,7 +286,9 @@ This mechanism is crucial for fairness. It ensures that:
 
 ### 5.8 Security and Governance
 
-We have not performed a security audit on the simplified contracts. Additionally, the system currently lacks the liquid governance mechanism described in the whitepaper, meaning parameters like `minStake` or `alpha` cannot be adjusted by the community without redeploying the contract. Access-control–style checks (for example, “only jurors can vote/reveal”) and basic sanity constraints are validated by tests such as `testNonJurorCannotCommit`, `testNonJurorCannotReveal`, `testCannotCommitAfterDeadline`, and `testCannotDrawJurorsTwice`, but these are not a substitute for a full audit or on-chain governance.
+We have not performed a security audit on the simplified contracts. Additionally, the system currently lacks the liquid governance mechanism described in the whitepaper, meaning parameters like `minStake` or `alpha` cannot be adjusted by the community without redeploying the contract. Access-control–style checks (for example, "only jurors can vote/reveal") and basic sanity constraints are validated by tests such as `testNonJurorCannotCommit`, `testNonJurorCannotReveal`, `testCannotCommitAfterDeadline`, and `testCannotDrawJurorsTwice`, but these are not a substitute for a full audit or on-chain governance.
+
+---
 
 ## 6. Challenges faced 
 
@@ -292,6 +298,7 @@ Even with bugs the system would seem to function, a good example for it will be 
 
 We also are not sure how to hedge against a single juror getting picked all the time. It is a low probability event and we tried to fuzz test to get such a case but we didn't get it, in all honesty we didn't try that hard for that as well. The theoretical proof itself is unequivocal. We did a lot of brainstorming on such issues that occur due to the inherent design of the system. We had to understand that the point of such systems is to prevent really bad things from happening, not to always converge at an optimal solution. Even if it is a near optimal solution, it is alright. Implementing that mindset into our critical thinking while simplifying the protocol was crucial but took a while to converge at. 
 
+---
 
 ## References
 
