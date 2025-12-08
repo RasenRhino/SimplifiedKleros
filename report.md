@@ -148,7 +148,7 @@ The most significant achievement of this project is the test suite (`SimpleKlero
 - **The "Lazy Juror" Penalty:** We verified that jurors who commit but fail to reveal are penalized, ensuring liveness (`testNonRevealerLosesStake`).
 - **Sybil Resistance:** We proved via testing that splitting tokens across multiple addresses yields no mathematical advantage (discussed in the next subsection) in selection probability compared to holding them in a single address, using a combination of `testWeightedSelectionFavorsHigherStakes`, `testWeightedSelectionWithMultipleRandomSeeds`, and `testFuzz_WeightedSelectionFavorsHigherStakes`.
 
-##### NOTE : Test cases are discussed in more detail in the README.md
+##### NOTE : Test cases are discussed in more detail in the README.md. We draw our motivation for tests from actual Kleros v1 testing suite. 
 
 ####  Mathematical Explanation: Sybil Resistance in Weighted Selection
 
@@ -285,11 +285,23 @@ This mechanism is crucial for fairness. It ensures that:
 
 We have not performed a security audit on the simplified contracts. Additionally, the system currently lacks the liquid governance mechanism described in the whitepaper, meaning parameters like `minStake` or `alpha` cannot be adjusted by the community without redeploying the contract. Access-control–style checks (for example, “only jurors can vote/reveal”) and basic sanity constraints are validated by tests such as `testNonJurorCannotCommit`, `testNonJurorCannotReveal`, `testCannotCommitAfterDeadline`, and `testCannotDrawJurorsTwice`, but these are not a substitute for a full audit or on-chain governance.
 
-## 6. Conclusion
+## 6. Challenges faced 
 
-This project successfully demonstrated the fundamental game-theoretic incentives that power decentralized justice. By building and aggressively testing `SimpleKleros`, we validated the Schelling Point mechanism: rational actors, incentivized by economic redistribution, will coordinate on the truth. However, the deviations from the standard specification—specifically regarding the lack of appeals and the Sortition Sum Tree—highlight the immense complexity required to take such a system from a theoretical prototype to a production-grade decentralized court. The accompanying Foundry test suite, referenced throughout this report, serves both as executable documentation of these properties and as a basis for future iterations that add appeals, fee flows, more robust randomness, and governance.
+Adversarial approach to game theoretic systems was something we needed some time, effort and intuition for. Unlike other adversarial SOPs, there were very few resources we could refer to. Since we were understanding and simplifying the protocol, it was imperative that we enumerate the tradeoffs associated with such an endeavour.
+
+Even with bugs the system would seem to function, a good example for it will be `testFix_StaleTotalStakeInDrawLoop` in the testing suite. The output would recommend that our code is working alright, till we decided to tally the total tokens with total stake in the system + remaining tokens. Such errors were encountered regularly and honestly we won't be surprised if more such errors show up. We have found some errors and fixed them and wrote tests from them starting with `testFix_`. It is like solving probability puzzles, just like any Turing complete software. It is immensely hard to create an exhaustive testing suite.
+
+We also are not sure how to hedge against a single juror getting picked all the time. It is a low probability event and we tried to fuzz test to get such a case but we didn't get it, in all honesty we didn't try that hard for that as well. The theoretical proof itself is unequivocal. We did a lot of brainstorming on such issues that occur due to the inherent design of the system. We had to understand that the point of such systems is to prevent really bad things from happening, not to always converge at an optimal solution. Even if it is a near optimal solution, it is alright. Implementing that mindset into our critical thinking while simplifying the protocol was crucial but took a while to converge at. 
 
 
+## References
 
+1. **Kleros Whitepaper** - Clément Lesaege, Federico Ast, and William George (September 2019)  
+   [https://kleros.io/whitepaper.pdf](https://kleros.io/whitepaper.pdf)
 
+2. **Kleros Yellowpaper** - Technical specification and implementation details  
+   [https://kleros.io/yellowpaper.pdf](https://kleros.io/yellowpaper.pdf)
+
+3. **Kleros Smart Contracts** - Official Kleros contract implementations on GitHub  
+   [https://github.com/kleros/kleros/blob/master/contracts/kleros/](https://github.com/kleros/kleros/blob/master/contracts/kleros/)
 

@@ -146,7 +146,7 @@ contract SimpleKlerosPhase3Test is Test {
     function testNumDrawsMustBePositive() public {
         _header("TEST: Number of Draws Must Be Greater Than Zero");
         
-        _explain("You can't have a court with zero jurors!");
+        _explain("You can't have a court with zero jurors");
         _explain("At least 1 juror is needed to make a decision.");
         
         console2.log("");
