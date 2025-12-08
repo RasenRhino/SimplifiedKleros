@@ -150,57 +150,56 @@ The most significant achievement of this project is the test suite (`SimpleKlero
 
 ##### NOTE : Test cases are discussed in more detail in the README.md. We draw our motivation for tests from actual Kleros v1 testing suite. 
 
-####  Mathematical Explanation: Sybil Resistance in Weighted Selection
-
+#### Mathematical Explanation: Sybil Resistance in Weighted Selection
 
 The selection mechanism in Kleros (and implemented in `SimpleKlerosPhase3`) is designed such that the probability of being selected as a juror is directly proportional to the amount of tokens a user has staked.
 
 Let:
 
-- \( S_{\text{total}} \) be the total amount of tokens staked in the court by all jurors.  
-- \( S_A \) be the amount of tokens staked by a specific user (User A).  
-- \( n \) be the number of juror spots (draws) to be filled for a dispute.
+- $S_{\text{total}}$ be the total amount of tokens staked in the court by all jurors.  
+- $S_A$ be the amount of tokens staked by a specific user (User A).  
+- $n$ be the number of juror spots (draws) to be filled for a dispute.
 
 The probability of User A being selected for **one specific draw** is:
 
-\[
+$$
 P(\text{User A selected}) = \frac{S_A}{S_{\text{total}}}
-\]
+$$
 
+Now, consider a Sybil attack scenario where User A splits their stake $S_A$ across $k$ different addresses (identities), denoted as $a_1, a_2, \dots, a_k$.  
+Let $s_i$ be the stake in address $a_i$. Therefore:
 
-Now, consider a Sybil attack scenario where User A splits their stake \( S_A \) across \( k \) different addresses (identities), denoted as \( a_1, a_2, \dots, a_k \). Let \( s_i \) be the stake in address \( a_i \). Therefore:
-
-\[
+$$
 \sum_{i=1}^{k} s_i = S_A
-\]
+$$
 
-The probability of any specific address \( a_i \) being selected for a single draw is:
+The probability of any specific address $a_i$ being selected for a single draw is:
 
-\[
+$$
 P(a_i \text{ selected}) = \frac{s_i}{S_{\text{total}}}
-\]
+$$
 
 The probability that **any** of User A's addresses is selected for that single draw is the sum of the probabilities of each individual address being selected (since the events are mutually exclusive for a single draw):
 
-\[
-P(\text{Any of User A's addresses selected}) 
-= \sum_{i=1}^{k} P(a_i \text{ selected}) 
+$$
+P(\text{Any of User A's addresses selected}) = \sum_{i=1}^{k} P(a_i \text{ selected})
 = \sum_{i=1}^{k} \frac{s_i}{S_{\text{total}}}
-\]
+$$
 
-Since the denominator \( S_{\text{total}} \) is constant:
+Since the denominator $S_{\text{total}}$ is constant:
 
-\[
+$$
 P(\text{Any of User A's addresses selected}) 
 = \frac{1}{S_{\text{total}}} \sum_{i=1}^{k} s_i
-\]
+$$
 
-Substituting \( \sum_{i=1}^{k} s_i = S_A \):
+Substituting $\sum_{i=1}^{k} s_i = S_A$:
 
-\[
+$$
 P(\text{Any of User A's addresses selected}) 
 = \frac{S_A}{S_{\text{total}}}
-\]
+$$
+
 
 **Conclusion:** The probability of selection remains exactly \( \frac{S_A}{S_{\text{total}}} \) regardless of whether the stake \( S_A \) is held in one address or split across \( k \) addresses. Splitting tokens increases the computational overhead (gas costs) for the attacker without providing any statistical advantage in being selected. This mathematical property underpins the Sybil resistance of the protocol and is empirically illustrated in the weighted-selection tests described above.
 
