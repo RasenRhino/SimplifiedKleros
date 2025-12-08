@@ -1,5 +1,11 @@
 # Implementation and Analysis of a Simplified Decentralized Dispute Resolution System
 
+**Authors:** Daniel Mints, Ridham Bhagat  
+**Course:** Distributed Systems  
+**Institution:** Northeastern University
+
+---
+
 ## 1. Background and Motivation
 
 The rapid expansion of the digital economy has led to a surge in peer-to-peer transactions across jurisdictional boundaries. Traditional legal systems are often too slow, expensive, and geographically limited to handle disputes arising from these interactions, such as freelancing disagreements or crowdfunding failures.
