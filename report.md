@@ -56,8 +56,6 @@ Specific goals included:
 Everyone votes honestly → System finds truth
 ```
 
-That's the **Kleros loop** — economic self-interest drives honest behavior.
-
 ---
 
 ## 3. Architecture and Design
