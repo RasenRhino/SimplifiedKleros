@@ -1,6 +1,7 @@
 # Kleros Dispute Resolution - Phased Implementation
 
 ## How to Run
+
 ```bash
 # Install Foundry if not already installed
 curl -L https://foundry.paradigm.xyz | bash
@@ -12,8 +13,20 @@ forge test -vv
 # Run with detailed logs
 forge test -vvv
 
+# Run specific phase tests
+forge test --match-path test/SimpleKlerosPhase3Test.t.sol -vv
+
 # Run specific test
-forge test --match-test "testWeightedSelectionWithMultipleRandomSeeds" -vvv
+forge test --match-test "testMajorityWinsAndGetsReward" -vvv
+
+# Run weighted selection test with RANDOM seed (different results each run!)
+RANDOM_SEED=$RANDOM forge test --match-test "testWeightedSelectionWithMultipleRandomSeeds" -vvv
+
+# Run with specific seed (reproducible results)
+RANDOM_SEED=12345 forge test --match-test "testWeightedSelectionWithMultipleRandomSeeds" -vvv
+
+# Run fuzz tests (256 runs with random inputs)
+forge test --match-test "testFuzz_" -vv
 ```
 
 ---
@@ -138,6 +151,37 @@ That's the **Kleros loop** — economic self-interest drives honest behavior.
 
 ---
 
+## Bug Fixes Implemented
+
+Three critical bugs were identified and fixed in `SimpleKlerosPhase3`:
+
+### Bug 1: Stale `totalStake` in Draw Loop
+**Problem:** `totalStake` was calculated once before the loop, but each selection locks tokens, reducing available stake.
+```
+Draw 1: target = rand % 1000 → selects juror, locks 100
+Draw 2: target = rand % 1000 → but actual available is now 900!
+        target could be 950 → can't reach → falls to FALLBACK
+```
+**Fix:** Recalculate `currentTotalStake = _getTotalStake()` at the start of each draw iteration.
+
+### Bug 2: DoS on Insufficient Stake
+**Problem:** If a selected juror didn't have enough stake, the entire transaction reverted.
+```solidity
+require(js.amount >= js.lockedAmount + minStake, "insufficient"); // ← Reverts!
+```
+**Fix:** Added retry mechanism with `nonce` and `maxRetries`. If a juror can't be selected, try again with a different random value.
+
+### Bug 3: Fallback Checks Total Instead of Available
+**Problem:** Fallback returned the first juror with sufficient **total** stake, but they might have it all locked.
+```solidity
+if (stakes[jurorList[i]].amount >= minStake) { // Wrong! Checks total
+    return jurorList[i];
+}
+```
+**Fix:** Check available stake: `if (availableFallback >= minStake)`.
+
+---
+
 ## Test Results
 
 ```
@@ -178,7 +222,7 @@ Ran 37 tests for test/SimpleKlerosPhase3Test.t.sol:SimpleKlerosPhase3Test
 [PASS] testTieResultsInUndecided() (gas: 503175)
 [PASS] testTotalSelectionsEqualsNumDraws() (gas: 467457)
 [PASS] testWeightedSelectionFavorsHigherStakes() (gas: 6263945)
-[PASS] testWeightedSelectionWithMultipleRandomSeeds() (gas: 15888943)
+[PASS] testWeightedSelectionWithMultipleRandomSeeds() (gas: 15534933)
 
 Suite result: ok. 37 passed; 0 failed; 0 skipped
 ```
@@ -187,7 +231,7 @@ Suite result: ok. 37 passed; 0 failed; 0 skipped
 
 ## Test Categories
 
-### Core Functionality Tests
+### Core Functionality Tests (5 tests)
 
 | Test | What It Checks |
 |------|----------------|
@@ -197,15 +241,26 @@ Suite result: ok. 37 passed; 0 failed; 0 skipped
 | `testJurorCanBeSelectedMultipleTimes` | Same juror can be picked multiple times |
 | `testStakeLockedIsMinStakeTimesSelections` | Locked stake = minStake × selection count |
 
-### Weighted Selection Tests (Randomness)
+### Weighted Selection Tests (3 tests)
 
 | Test | What It Checks |
 |------|----------------|
 | `testWeightedSelectionFavorsHigherStakes` | Higher stake jurors selected more often (deterministic) |
-| `testWeightedSelectionWithMultipleRandomSeeds` | Shows varying results with different random seeds |
+| `testWeightedSelectionWithMultipleRandomSeeds` | Shows varying results with external random seeds |
 | `testFuzz_WeightedSelectionFavorsHigherStakes` | Fuzz test - runs 256 times with random seeds |
 
-### Voting & Reward Distribution Tests
+**Running with Different Seeds:**
+```bash
+# Different results each run:
+RANDOM_SEED=$RANDOM forge test --match-test "testWeightedSelectionWithMultipleRandomSeeds" -vvv
+
+# Example outputs with different seeds:
+# Seed 111:  Alice 7/15, Bob 5/15, Charlie 3/15
+# Seed 999:  Alice 8/15, Bob 2/15, Charlie 5/15
+# Seed 17032: Alice 7/15, Bob 4/15, Charlie 4/15
+```
+
+### Voting & Reward Distribution Tests (6 tests)
 
 | Test | What It Checks |
 |------|----------------|
@@ -216,7 +271,7 @@ Suite result: ok. 37 passed; 0 failed; 0 skipped
 | `testTieResultsInUndecided` | Zero reveals (0 vs 0) = Undecided ruling |
 | `testCanUnstakeAfterDispute` | Winners can withdraw after dispute ends |
 
-### Security & Access Control Tests
+### Security & Access Control Tests (7 tests)
 
 | Test | What It Checks |
 |------|----------------|
@@ -228,7 +283,7 @@ Suite result: ok. 37 passed; 0 failed; 0 skipped
 | `testCannotRevealTwice` | No double reveals |
 | `testCannotRevealInvalidVoteValue` | Vote must be 1 or 2 |
 
-### Phase Timing Enforcement Tests
+### Phase Timing Enforcement Tests (5 tests)
 
 | Test | What It Checks |
 |------|----------------|
@@ -238,7 +293,7 @@ Suite result: ok. 37 passed; 0 failed; 0 skipped
 | `testCannotFinalizeBeforeRevealDeadline` | Can't end dispute early |
 | `testCannotDrawJurorsTwice` | Jurors drawn only once per dispute |
 
-### Staking Mechanics Tests
+### Staking Mechanics Tests (4 tests)
 
 | Test | What It Checks |
 |------|----------------|
@@ -247,7 +302,7 @@ Suite result: ok. 37 passed; 0 failed; 0 skipped
 | `testCannotStakeZero` | Zero stake rejected |
 | `testCannotUnstakeMoreThanAvailable` | Can't withdraw more than unlocked |
 
-### Bug Fix Verification Tests
+### Bug Fix Verification Tests (4 tests)
 
 | Test | What It Checks |
 |------|----------------|
@@ -256,7 +311,7 @@ Suite result: ok. 37 passed; 0 failed; 0 skipped
 | `testFix_CorrectTotalStakeAfterMultipleSelections` | Stake tracking after multi-selection |
 | `testFix_FallbackChecksAvailableNotTotalStake` | Fallback checks available, not total stake |
 
-### View Function Tests
+### View Function Tests (3 tests)
 
 | Test | What It Checks |
 |------|----------------|
@@ -266,15 +321,32 @@ Suite result: ok. 37 passed; 0 failed; 0 skipped
 
 ---
 
-## Some more issues 
+## Known Limitations
 
-Every time we looked at our code, we found new issues in our simplified versions, for instance if stake >min_stake , someone can do a confidence attack, and whales can really mess up the voting. 
-
-No hedging yet. (all your eggs in one basket even if you get selected multiple times)
-
-In some cases , we do face rounding errors. 
-
-We don’t do concurrent disputes right now. That might bring its own sets of problems, next step should be to deal with appeals first.
+| Issue | Description |
+|-------|-------------|
+| **Confidence Attack** | If stake > minStake, wealthy jurors can overwhelm votes |
+| **Whale Manipulation** | Large token holders can dominate juror selection |
+| **No Hedging** | All eggs in one basket even with multiple selections |
+| **Rounding Errors** | Some edge cases have minor rounding issues |
+| **No Concurrent Disputes** | Only one dispute at a time per juror |
+| **No Appeals** | Next step should be to implement appeals |
 
 ---
 
+## File Structure
+
+```
+src/
+├── SimpleKlerosPhase1.sol   # Basic staking & commit-reveal
+├── SimpleKlerosPhase2.sol   # Added juror selection
+├── SimpleKlerosPhase3.sol   # Full weighted selection & multi-select
+└── TestToken.sol            # Mock ERC20 for testing
+
+test/
+├── SimpleKlerosPhase1Test.t.sol
+├── SimpleKlerosPhase2Test.t.sol
+└── SimpleKlerosPhase3Test.t.sol   # 37 tests
+```
+
+---
