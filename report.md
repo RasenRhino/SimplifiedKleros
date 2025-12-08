@@ -20,29 +20,28 @@ Specific goals included:
 - **Gap Analysis:** Identifying and enumerating the specific pitfalls that arise from simplifying the standard Kleros specification, particularly regarding scalability and economic security.
 - **Testing:** The majority of the effort was dedicated to writing a comprehensive test suite. This served as the "Proof of Work" for our understanding of the system, verifying how the protocol handles edge cases and adversarial behavior (e.g., "lazy" jurors or strategic voters). Lazy juror being someone who won't reveal their vote and a strategic voter being someone who would want to find leverages that are not common knowledge to gain certain edge. 
 
-
 ### Key Features of our implementation
 
 | Feature | Description |
 |---------|-------------|
-| **Weighted Random Selection** | Higher stake = higher chance of being selected as juror |
-| **Multi-Selection** | Same juror can be picked multiple times (each pick = +1 voting power) |
-| **Odd Number of Draws** | Always odd (3, 5, 7...) to prevent ties |
-| **Stake Locking** | Each selection locks `minStake` tokens until dispute resolves |
-| **Commit-Reveal Voting** | Secret votes prevent copying others |
-| **Stake Redistribution** | Losers are slashed, winners gain proportionally |
+| **Weighted Random Selection** | Higher stake = higher chance of being selected as juror (see `testWeightedSelectionFavorsHigherStakes`, `testWeightedSelectionWithMultipleRandomSeeds`, and `testFuzz_WeightedSelectionFavorsHigherStakes`) |
+| **Multi-Selection** | Same juror can be picked multiple times (each pick = +1 voting power), demonstrated in `testJurorCanBeSelectedMultipleTimes` |
+| **Odd Number of Draws** | Always odd (3, 5, 7...) to prevent ties (`testNumDrawsMustBeOdd`, `testNumDrawsMustBePositive`) |
+| **Stake Locking** | Each selection locks `minStake` tokens until dispute resolves (`testStakeLockedIsMinStakeTimesSelections`) |
+| **Commit-Reveal Voting** | Secret votes prevent copying others (`testCannotRevealWithWrongSalt`, `testCannotRevealWithWrongVote`) |
+| **Stake Redistribution** | Losers are slashed, winners gain proportionally (`testMajorityWinsAndGetsReward`, `testLoserGetsSlashed`) |
 
 ### Key Rules
 
 | Rule | Why |
 |------|-----|
-| **Commit-reveal** | Prevents copying others' votes |
-| **Weighted selection** | Higher stake = more skin in the game |
-| **Multi-selection** | Natural weighting without complex math |
-| **Odd draws only** | Prevents ties in voting |
-| **Locked during dispute** | Can't withdraw while voting |
-| **Non-revealers lose** | Forces participation |
-| **Recalculate stake each draw** | Prevents stale stake bugs |
+| **Commit-reveal** | Prevents copying others' votes; enforced by tests like `testCannotRevealWithWrongSalt`, `testCannotRevealWithWrongVote`, and `testCannotRevealTwice` |
+| **Weighted selection** | Higher stake = more skin in the game (`testWeightedSelectionFavorsHigherStakes`) |
+| **Multi-selection** | Natural weighting without complex math (`testJurorCanBeSelectedMultipleTimes`) |
+| **Odd draws only** | Prevents ties in voting (`testNumDrawsMustBeOdd`) |
+| **Locked during dispute** | Can't withdraw while voting (`testCannotUnstakeWhileLocked`) |
+| **Non-revealers lose** | Forces participation (`testNonRevealerLosesStake`) |
+| **Recalculate stake each draw** | Prevents stale stake bugs (`testFix_StaleTotalStakeInDrawLoop`, `testFix_CorrectTotalStakeAfterMultipleSelections`) |
 
 
 ### The Economic Logic
@@ -115,19 +114,19 @@ stateDiagram-v2
 
 **Dispute Creation:** An arbitrable contract (e.g., an Escrow) raises a dispute.
 
-**Juror Selection:** Jurors are drawn based on the weight of their staked tokens. Kleros selects an odd number of jurors to minimize the chance of a tie. However, situations may still arise—for example, with 7 jurors, if one fails to reveal their vote, a 3-3 tie can occur. See [section 5.7](#57-handling-tie-events) for a discussion of how such cases are handled.
+**Juror Selection:** Jurors are drawn based on the weight of their staked tokens. Kleros selects an odd number of jurors to minimize the chance of a tie. However, situations may still arise—for example, with 7 jurors, if one fails to reveal their vote, a 3-3 tie can occur. See [section 5.7](#57-handling-tie-events) for a discussion of how such cases are handled, and tests `testTieNoRedistribution` and `testTieResultsInUndecided` for concrete executions.
 
 **Commit Phase:** Selected jurors submit a hash of their vote (`keccak256(vote + salt)`). This prevents "bandwagoning" where jurors simply copy the visible majority to secure their reward.
 
 **Reveal Phase:** Jurors reveal their actual vote and salt. The contract verifies this against the commit hash.
 
-**Execution/Finalize:** The contract aggregates votes, declares a winner, and redistributes stakes from the minority to the majority.
+**Execution/Finalize:** The contract aggregates votes, declares a winner, and redistributes stakes from the minority to the majority. This is exercised in `testMajorityWinsAndGetsReward`, `testLoserGetsSlashed`, and `testCanUnstakeAfterDispute`.
 
 ### 3.2 Weighted Juror Selection
 
 A critical component of the design is Sybil resistance. In Kleros, the probability of being drawn as a juror is proportional to the amount of tokens staked.
 
-In our `SimpleKlerosPhase3` implementation, we utilized a linear weighted random selection algorithm. The simplified logic iterates through the list of jurors, summing their "available" stake (total stake minus locked stake) to determine selection probability. This ensures that a juror cannot be selected more times than their stake allows, a critical fix we identified during testing to prevent Denial of Service (DoS) scenarios.
+In our `SimpleKlerosPhase3` implementation, we utilized a linear weighted random selection algorithm. The simplified logic iterates through the list of jurors, summing their "available" stake (total stake minus locked stake) to determine selection probability. This ensures that a juror cannot be selected more times than their stake allows, a critical fix we identified during testing to prevent Denial of Service (DoS) scenarios (see `testFix_StaleTotalStakeInDrawLoop`, `testFix_CorrectTotalStakeAfterMultipleSelections`, and `testFix_NoDoSWhenJurorHasInsufficientStake`).
 
 ## 4. Achievements and Implementation Details
 
@@ -135,9 +134,9 @@ We successfully delivered a functional Solidity contract and a Foundry test suit
 
 ### 4.1 Key Features Implemented
 
-- **End-to-End Dispute Cycle:** Successfully executed the full flow: `createDispute → drawJurors → commitVote → revealVote → finalize`.
-- **Multi-Selection Support:** Implemented logic allowing a single high-stake juror to be selected multiple times for the same dispute, increasing their voting weight and potential rewards/penalties, mirroring the behavior described in the Kleros Whitepaper.
-- **Incentive Redistribution:** Implemented the mechanism where incoherent jurors (those voting against the majority) lose their locked stake, which is then distributed to coherent jurors.
+- **End-to-End Dispute Cycle:** Successfully executed the full flow: `createDispute → drawJurors → commitVote → revealVote → finalize`. This full lifecycle is walked through in tests like `testMajorityWinsAndGetsReward`, `testNonRevealerLosesStake`, and `testCanUnstakeAfterDispute`.
+- **Multi-Selection Support:** Implemented logic allowing a single high-stake juror to be selected multiple times for the same dispute, increasing their voting weight and potential rewards/penalties, mirroring the behavior described in the Kleros Whitepaper. This is observed directly in `testJurorCanBeSelectedMultipleTimes` and the weighted selection tests.
+- **Incentive Redistribution:** Implemented the mechanism where incoherent jurors (those voting against the majority) lose their locked stake, which is then distributed to coherent jurors (`testMajorityWinsAndGetsReward`, `testLoserGetsSlashed`, `testNonRevealerLosesStake`).
 
 ### 4.2 Testing 
 
@@ -145,10 +144,9 @@ The most significant achievement of this project is the test suite (`SimpleKlero
 
 **Scenarios Verified:**
 
-- **The "Stale Stake" Bug:** We identified and fixed a logic error where the "total available stake" was not updating dynamically during the juror selection loop. In actual kleros , the flow is slightly different as they don't update the total available stake because the token distribution is more sparse. We update the total available stake as it makes implementation easier for us, while making sure juror selection goes as expected. We have not yet identified any issues with our slight modification but the jury is still out on that. 
-- **The "Lazy Juror" Penalty:** We verified that jurors who commit but fail to reveal are penalized, ensuring liveness.
-- **Sybil Resistance:** We proved via testing that splitting tokens across multiple addresses yields no mathematical advantage (discussed in the next subsection) in selection probability compared to holding them in a single address. 
-
+- **The "Stale Stake" Bug:** We identified and fixed a logic error where the "total available stake" was not updating dynamically during the juror selection loop. In actual Kleros, the flow is slightly different as they don't update the total available stake because the token distribution is more sparse. We update the total available stake as it makes implementation easier for us, while making sure juror selection goes as expected. We have not yet identified any issues with our slight modification but the jury is still out on that. The fix is regression-tested in `testFix_StaleTotalStakeInDrawLoop` and `testFix_CorrectTotalStakeAfterMultipleSelections`.
+- **The "Lazy Juror" Penalty:** We verified that jurors who commit but fail to reveal are penalized, ensuring liveness (`testNonRevealerLosesStake`).
+- **Sybil Resistance:** We proved via testing that splitting tokens across multiple addresses yields no mathematical advantage (discussed in the next subsection) in selection probability compared to holding them in a single address, using a combination of `testWeightedSelectionFavorsHigherStakes`, `testWeightedSelectionWithMultipleRandomSeeds`, and `testFuzz_WeightedSelectionFavorsHigherStakes`.
 
 ##### NOTE : Test cases are discussed in more detail in the README.md
 
@@ -204,9 +202,7 @@ P(\text{Any of User A's addresses selected})
 = \frac{S_A}{S_{\text{total}}}
 \]
 
-**Conclusion:** The probability of selection remains exactly \( \frac{S_A}{S_{\text{total}}} \) regardless of whether the stake \( S_A \) is held in one address or split across \( k \) addresses. Splitting tokens increases the computational overhead (gas costs) for the attacker without providing any statistical advantage in being selected. This mathematical property underpins the Sybil resistance of the protocol.
-
-
+**Conclusion:** The probability of selection remains exactly \( \frac{S_A}{S_{\text{total}}} \) regardless of whether the stake \( S_A \) is held in one address or split across \( k \) addresses. Splitting tokens increases the computational overhead (gas costs) for the attacker without providing any statistical advantage in being selected. This mathematical property underpins the Sybil resistance of the protocol and is empirically illustrated in the weighted-selection tests described above.
 
 ## 5. Gap Analysis
 
@@ -224,7 +220,7 @@ By simplifying the protocol, we exposed several pitfalls and deviations from the
 
 **The Problem:** Our implementation uses a linear loop (`O(n)`) to select jurors and a linear loop to redistribute tokens. As the number of jurors increases, the gas cost to process a dispute creates a bottleneck, potentially exceeding the Ethereum block gas limit.
 
-**The Kleros Solution:** The actual Kleros contract utilizes a Sortition Sum Tree data structure. This allows for drawing jurors in `O(log n)` time, making the system scalable to thousands of jurors. We did not implement this data structure due to its complexity.
+**The Kleros Solution:** The actual Kleros contract utilizes a Sortition Sum Tree data structure. This allows for drawing jurors in `O(log n)` time, making the system scalable to thousands of jurors. We did not implement this data structure due to its complexity, but the linear behavior and its limits can be observed indirectly by running the higher-verbosity test configurations described in the README.
 
 ### 5.3 The Alpha Parameter vs. 100% Slashing
 
@@ -232,13 +228,13 @@ By simplifying the protocol, we exposed several pitfalls and deviations from the
 
 **The Pitfall:** This is too punitive. It discourages participation because an honest mistake results in a total loss of the staked amount.
 
-**The Standard Spec:** The Kleros Yellowpaper defines a parameter α (Alpha). The amount lost is defined as `D = α × min_stake × weight`. This allows the governance system to tune the penalty (e.g., jurors might only lose 20% of their stake for an incorrect vote), balancing incentive security with participation safety.
+**The Standard Spec:** The Kleros Yellowpaper defines a parameter α (Alpha). The amount lost is defined as `D = α × min_stake × weight`. This allows the governance system to tune the penalty (e.g., jurors might only lose 20% of their stake for an incorrect vote), balancing incentive security with participation safety. The current “full slashing” behavior is visible in `testLoserGetsSlashed` and `testNonRevealerLosesStake`.
 
 ### 5.4 Arbitration Fees
 
 **Status:** Not Implemented.
 
-**Impact:** Our system relies solely on token redistribution (internal economic game). We did not implement the flow of ETH (Arbitration Fees) from the disputing parties to the jurors. In a production environment, this is critical because token redistribution alone is a zero-sum game among jurors; external fees are required to make honest work net-profitable. Also, if everyone is in majority then there will be no incentive to work with, which might fail some assertions in the test cases. We have written our test cases keeping that in mind. 
+**Impact:** Our system relies solely on token redistribution (internal economic game). We did not implement the flow of ETH (Arbitration Fees) from the disputing parties to the jurors. In a production environment, this is critical because token redistribution alone is a zero-sum game among jurors; external fees are required to make honest work net-profitable. Also, if everyone is in majority then there will be no incentive to work with, which might fail some assertions in the test cases. We have written our test cases keeping that in mind – for example, `testMajorityWinsAndGetsReward` and `testCanUnstakeAfterDispute` focus on stake movement, not on external fee flows.
 
 ### 5.5 Randomness Generation
 
@@ -246,7 +242,7 @@ By simplifying the protocol, we exposed several pitfalls and deviations from the
 
 **The Pitfall:** As noted in the Kleros Whitepaper, miners can manipulate blockhashes by withholding blocks that produce unfavorable outcomes.
 
-**The Standard Spec:** A production-ready system requires a more robust RNG, such as Sequential Proof-of-Work or Verifiable Delay Functions (VDFs).
+**The Standard Spec:** A production-ready system requires a more robust RNG, such as Sequential Proof-of-Work or Verifiable Delay Functions (VDFs). Our test suite explores different block/environment configurations (`vm.roll`, `vm.warp`) in `testWeightedSelectionFavorsHigherStakes`, `testWeightedSelectionWithMultipleRandomSeeds`, and `testFuzz_WeightedSelectionFavorsHigherStakes`, which makes the dependence on blockhash-based randomness explicit.
 
 ### 5.6 Rounding Errors in Token Redistribution
 
@@ -256,11 +252,11 @@ By simplifying the protocol, we exposed several pitfalls and deviations from the
 
 - **The Scenario:** Consider a dispute with 3 jurors where 1 incoherent juror is slashed for 100 tokens. The 2 coherent jurors have equal weight (1 vote each). The reward calculation is `100 * 1 / 2 = 50`. Both winners get 50 tokens, and 0 tokens are left over. However, if the slashed amount was 101 tokens, `101 / 2 = 50`. Each winner gets 50, and 1 token remains stuck in the contract (`101 - 50 - 50 = 1`).
 
-- **Impact:** Over time, these "dust" tokens accumulate in the contract balance, effectively burned from circulation unless a sweep mechanism is implemented. In our simplified implementation, we did not include logic to send this dust to a governance treasury or distribute it to the dispute creator, which is a minor economic inefficiency.
+- **Impact:** Over time, these "dust" tokens accumulate in the contract balance, effectively burned from circulation unless a sweep mechanism is implemented. In our simplified implementation, we did not include logic to send this dust to a governance treasury or distribute it to the dispute creator, which is a minor economic inefficiency. This behavior can be seen in practice when inspecting balances during reward-distribution tests such as `testMajorityWinsAndGetsReward` and `testLoserGetsSlashed`.
 
 ### 5.7 Handling TIE events 
 
-**Example:** We have 7 jurors, one of them decides to not show it's reveal its vote, so we have only 6 votes now. Say, we get 3 "yes" and 3 "no" , in this case it is a tie. In such a case , **Option 0** is considered a solution and we usually give the jurors their stake back.
+**Example:** We have 7 jurors, one of them decides to not reveal its vote, so we have only 6 votes now. Say, we get 3 "yes" and 3 "no" , in this case it is a tie. In such a case , **Option 0** is considered a solution and we usually give the jurors their stake back.
 
 #### Summary of Actual Kleros Behavior in this Edge Case:
 
@@ -274,7 +270,7 @@ By simplifying the protocol, we exposed several pitfalls and deviations from the
 
 #### Our implementation
 
-Since we have no **Governance Treasury** , we just revert the stake. 
+Since we have no **Governance Treasury** , we just revert the stake. The key behaviors around ties and “everyone silent” cases are exercised in `testTieNoRedistribution` (single-juror / trivial tie handling) and `testTieResultsInUndecided` (0 vs 0 votes → Undecided with all stakes returned).
 
 ---
 
@@ -282,15 +278,18 @@ Since we have no **Governance Treasury** , we just revert the stake.
 
 This mechanism is crucial for fairness. It ensures that:
 
-1. **Liveness is Enforced:** Jurors are strongly incentivized to reveal their votes; otherwise, they lose money.  
-2. **Genuine Disagreement is not Punished:** If the case is truly ambiguous or the jury is perfectly split, honest jurors are not slashed for voting their conscience, even if they didn't pick the "winning" side (which turned out to be a tie).
-
+1. **Liveness is Enforced:** Jurors are strongly incentivized to reveal their votes; otherwise, they lose money.  This is enforced in `testNonRevealerLosesStake` and by the timing tests (`testCannotRevealAfterDeadline`, `testCannotFinalizeBeforeRevealDeadline`).
+2. **Genuine Disagreement is not Punished:** If the case is truly ambiguous or the jury is perfectly split, honest jurors are not slashed for voting their conscience, even if they didn't pick the "winning" side (which turned out to be a tie). This is reflected in `testTieResultsInUndecided`, where stakes are returned on a true tie.
 
 ### 5.8 Security and Governance
 
-We have not performed a security audit on the simplified contracts. Additionally, the system currently lacks the liquid governance mechanism described in the whitepaper, meaning parameters like `minStake` or `alpha` cannot be adjusted by the community without redeploying the contract.
-
+We have not performed a security audit on the simplified contracts. Additionally, the system currently lacks the liquid governance mechanism described in the whitepaper, meaning parameters like `minStake` or `alpha` cannot be adjusted by the community without redeploying the contract. Access-control–style checks (for example, “only jurors can vote/reveal”) and basic sanity constraints are validated by tests such as `testNonJurorCannotCommit`, `testNonJurorCannotReveal`, `testCannotCommitAfterDeadline`, and `testCannotDrawJurorsTwice`, but these are not a substitute for a full audit or on-chain governance.
 
 ## 6. Conclusion
 
-This project successfully demonstrated the fundamental game-theoretic incentives that power decentralized justice. By building and aggressively testing `SimpleKleros`, we validated the Schelling Point mechanism: rational actors, incentivized by economic redistribution, will coordinate on the truth. However, the deviations from the standard specification—specifically regarding the lack of appeals and the Sortition Sum Tree—highlight the immense complexity required to take such a system from a theoretical prototype
+This project successfully demonstrated the fundamental game-theoretic incentives that power decentralized justice. By building and aggressively testing `SimpleKleros`, we validated the Schelling Point mechanism: rational actors, incentivized by economic redistribution, will coordinate on the truth. However, the deviations from the standard specification—specifically regarding the lack of appeals and the Sortition Sum Tree—highlight the immense complexity required to take such a system from a theoretical prototype to a production-grade decentralized court. The accompanying Foundry test suite, referenced throughout this report, serves both as executable documentation of these properties and as a basis for future iterations that add appeals, fee flows, more robust randomness, and governance.
+
+
+
+
+
