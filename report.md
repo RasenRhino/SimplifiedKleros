@@ -114,7 +114,7 @@ stateDiagram-v2
 
 **Dispute Creation:** An arbitrable contract (e.g., an Escrow) raises a dispute.
 
-**Juror Selection:** Jurors are drawn based on the weight of their staked tokens. Kleros selects an odd number of jurors to minimize the chance of a tie. However, situations may still arise—for example, with 7 jurors, if one fails to reveal their vote, a 3-3 tie can occur. See [section 5.7](#57-handling-tie-events) for a discussion of how such cases are handled, and tests `testTieNoRedistribution` and `testTieResultsInUndecided` for concrete executions.
+**Juror Selection:** Jurors are drawn based on the weight of their staked tokens. Kleros selects an odd number of jurors to minimize the chance of a tie. However, situations may still arise for example, with 7 jurors, if one fails to reveal their vote, a 3-3 tie can occur. See [section 5.7](#57-handling-tie-events) for a discussion of how such cases are handled, and tests `testTieNoRedistribution` and `testTieResultsInUndecided` for concrete executions.
 
 **Commit Phase:** Selected jurors submit a hash of their vote (`keccak256(vote + salt)`). This prevents "bandwagoning" where jurors simply copy the visible majority to secure their reward.
 
