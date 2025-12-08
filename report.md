@@ -4,6 +4,8 @@
 **Course:** Distributed Systems  
 **Institution:** Northeastern University
 
+📖 **[View README](README.md)** - Quick start guide and test commands
+
 ---
 
 ## 1. Background and Motivation

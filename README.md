@@ -1,5 +1,9 @@
 # Kleros Dispute Resolution - Phased Implementation
 
+📄 **[Read the Full Report](report.md)** - Detailed analysis, architecture, and gap analysis
+
+---
+
 ## Quick Start
 
 ### Option 1: Run with Docker 
