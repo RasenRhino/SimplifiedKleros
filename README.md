@@ -11,20 +11,20 @@
 ```bash
 
 # Run only the 4 core demonstration tests
-docker-compose run core-tests
+docker compose run core-tests
 
 # Run all tests (37 tests)
-docker-compose run tests
+docker compose run tests
 
 
 # Run with random seed (different results each time) , ONLY used for random juror selection test if you want to give your own random seed. Fuzz testing command mentioned below.
-RANDOM_SEED=$RANDOM docker-compose run core-tests
+RANDOM_SEED=$RANDOM docker compose run core-tests
 
 # Run all tests with maximum verbosity , helpful if you want to see gas fees and nuanced transaction data. Currently out of the purview of our implementaion
-docker-compose run all-verbose
+docker compose run all-verbose
 
 # Run fuzz tests (256 iterations) , ONLY used for random juror selection test. 
-docker-compose run fuzz-tests
+docker compose run fuzz-tests
 
 ```
 
@@ -63,7 +63,7 @@ These 4 tests demonstrate the essential functionality of the Kleros dispute syst
 
 **With Docker:**
 ```bash
-docker-compose run core-tests
+docker compose run core-tests
 ```
 
 **Locally:**
@@ -110,53 +110,53 @@ forge test --match-test "testFuzz_" -vv
 
 ```bash
 # Build the Docker image (done automatically on first run)
-docker-compose build
+docker compose build
 
 # Run all tests (37 tests)
-docker-compose run tests
+docker compose run tests
 
 # Run core tests only (4 key demonstrations)
-docker-compose run core-tests
+docker compose run core-tests
 
 # Run with random seed (different results each time)
-RANDOM_SEED=$RANDOM docker-compose run core-tests
+RANDOM_SEED=$RANDOM docker compose run core-tests
 
 # Run all tests with maximum verbosity
-docker-compose run all-verbose
+docker compose run all-verbose
 
 # Run fuzz tests (256 iterations)
-docker-compose run fuzz-tests
+docker compose run fuzz-tests
 
 # Run Phase 3 tests only
-docker-compose run phase3-tests
+docker compose run phase3-tests
 ```
 
 ### Rebuild & Cleanup Commands
 
 ```bash
 # Force rebuild (use after code changes)
-docker-compose build --no-cache
+docker compose build --no-cache
 
 # Rebuild specific service
-docker-compose build --no-cache tests
+docker compose build --no-cache tests
 
 # Remove all containers
-docker-compose down
+docker compose down
 
 # Remove containers + images (full cleanup)
-docker-compose down --rmi all
+docker compose down --rmi all
 
 # Remove containers + images + volumes (complete reset)
-docker-compose down --rmi all --volumes
+docker compose down --rmi all --volumes
 
 # Remove orphan containers
-docker-compose down --remove-orphans
+docker compose down --remove-orphans
 
 # View running containers
-docker-compose ps
+docker compose ps
 
 # View logs
-docker-compose logs
+docker compose logs
 ```
 
 ---
