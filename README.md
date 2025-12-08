@@ -1,6 +1,8 @@
 # Kleros Dispute Resolution - Phased Implementation
 
-**[Read the Full Report](report.md)** - Detailed analysis, architecture, and gap analysis
+**[Read the Full Report](report.md)** - Detailed analysis, architecture, and gap analysis. 
+<br>
+**Please view it on our github: https://github.com/DanMint/DistributedSystemsFinalProject**
 
 ---
 
