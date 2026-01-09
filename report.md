@@ -1,6 +1,6 @@
 # Implementation and Analysis of a Simplified Decentralized Dispute Resolution System
 
-**Authors:** Daniel Mints, Ridham Bhagat  
+**Authors:** Ridham Bhagat, Daniel Mints
 **Course:** Distributed Systems  
 **Institution:** Northeastern University
 
