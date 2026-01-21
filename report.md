@@ -1,7 +1,7 @@
 # Implementation and Analysis of a Simplified Decentralized Dispute Resolution System
 
 
-**[View README](README.md)** - Quick start guide and test commands
+**[View README](README.md)** - Quick start guide 
 
 ---
 
